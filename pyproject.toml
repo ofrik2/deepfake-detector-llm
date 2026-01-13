@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deepfake-detector-llm"
+version = "0.1.0"
+description = "LLM-assisted deepfake video analysis using interpretable forensic evidence"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "Ori Eldar" }
+]
+
+dependencies = [
+    "numpy>=1.23",
+    "opencv-python>=4.8",
+    "Pillow>=9.5",
+    "python-dotenv>=1.0",
+    "tqdm>=4.66",
+    "openai>=1.0.0"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "black>=23.0",
+    "isort>=5.12",
+    "mypy>=1.5"
+]
+
+[project.scripts]
+deepfake-detector = "src.deepfake_detector.cli:main"
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+python_version = 3.9
+ignore_missing_imports = true
