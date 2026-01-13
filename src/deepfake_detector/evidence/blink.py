@@ -19,20 +19,21 @@ class BlinkEvidence:
 
 def _eye_openness_proxy(gray_roi: np.ndarray) -> float:
     """
-    Openness proxy: Laplacian variance (edge energy).
-    Cast to uint8 for OpenCV compatibility.
+    Proxy for eye 'openness' based on high-frequency content.
+    Uses log1p(Laplacian variance) to stabilize scale across frames.
     """
     if gray_roi.size == 0:
         return 0.0
 
-    # Ensure OpenCV-friendly dtype
+    # Ensure uint8 for Laplacian implementation consistency
     if gray_roi.dtype != np.uint8:
-        roi = np.clip(gray_roi, 0, 255).astype(np.uint8)
+        g = np.clip(gray_roi, 0, 255).astype(np.uint8)
     else:
-        roi = gray_roi
+        g = gray_roi
 
-    lap = cv2.Laplacian(roi, cv2.CV_64F)
-    return float(lap.var())
+    lap = cv2.Laplacian(g, cv2.CV_64F)
+    v = float(lap.var())
+    return float(np.log1p(v))
 
 
 

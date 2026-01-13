@@ -12,11 +12,9 @@ Signals:
 4) Face bbox jitter stats (stability of face detection/tracking)
 5) Face-boundary evidence (forensic-style):
    - compares edge-energy near face boundary vs interior face region
-   - aims to detect compositing / mask-edge artifacts (heuristic)
-
-ROI tracking:
-- Haar face bbox detected per frame (carry-forward fallback).
-- If all detections fail, fallback to center-based ROIs.
+6) Boundary calibration vs background:
+   - compute the same boundary ratio on a background patch
+   - report face_over_bg and face_minus_bg
 
 This module produces evidence only; it does NOT classify real vs manipulated.
 """
@@ -62,19 +60,25 @@ class EvidenceResult:
     global_motion_mean: float
     global_motion_min: float
     global_motion_max: float
+    global_motion_p95: float
     global_per_pair_motion: List[float]
 
     # Mouth motion
     mouth_motion_mean: float
     mouth_motion_min: float
     mouth_motion_max: float
+    mouth_motion_p95: float
+    mouth_motion_max_over_mean: float
     mouth_per_pair_motion: List[float]
 
     # Eyes motion
     eyes_motion_mean: float
     eyes_motion_min: float
     eyes_motion_max: float
+    eyes_motion_p95: float
+    eyes_motion_max_over_mean: float
     eyes_per_pair_motion: List[float]
+    blink_like_events: int
 
     # Blink evidence (heuristic)
     blink_detected: bool
@@ -83,12 +87,20 @@ class EvidenceResult:
     eye_openness_series: List[float]
     openness_threshold: float
     blink_method: str
+    eye_openness_range: float
+    blink_dip_fraction: float
 
-    # Boundary evidence (heuristic forensic cue)
-    boundary_edge_ratio_mean: float
-    boundary_edge_ratio_std: float
-    boundary_edge_ratio_series: List[float]
+    # Boundary evidence (face)
+    boundary_face_ratio_mean: float
+    boundary_face_ratio_std: float
+    boundary_face_ratio_series: List[float]
     boundary_method: str
+
+    # Boundary calibration vs background
+    boundary_bg_ratio_mean: float
+    boundary_bg_ratio_std: float
+    boundary_face_over_bg_mean: float
+    boundary_face_minus_bg_mean: float
 
     notes: List[str]
 
@@ -145,10 +157,6 @@ def _mean_abs_diff(a: np.ndarray, b: np.ndarray) -> float:
 
 
 def _mean_abs_diff_allow_mismatch(a: np.ndarray, b: np.ndarray) -> float:
-    """
-    Allow small ROI shape mismatches by cropping to common min shape.
-    Expected when ROIs are per-frame and bbox jitters by 1px.
-    """
     ha, wa = a.shape[:2]
     hb, wb = b.shape[:2]
     h = min(ha, hb)
@@ -293,19 +301,18 @@ def _laplacian_var_u8(gray: np.ndarray) -> float:
     return float(lap.var())
 
 
-def _boundary_edge_ratio_for_frame(
+def _boundary_edge_ratio_for_roi(
     gray: np.ndarray,
-    face_roi: Dict[str, int],
+    roi: Dict[str, int],
     shrink_frac: float = 0.12,
 ) -> float:
     """
-    Compute edge-energy ratio: ring (near boundary) / inner.
+    Compute edge-energy ratio: ring (near ROI boundary) / inner.
     """
-    x, y, w, h = face_roi["x"], face_roi["y"], face_roi["w"], face_roi["h"]
+    x, y, w, h = roi["x"], roi["y"], roi["w"], roi["h"]
     if w < 10 or h < 10:
         return 0.0
 
-    # Inner box
     dx = int(round(shrink_frac * w))
     dy = int(round(shrink_frac * h))
     inner = {
@@ -315,14 +322,13 @@ def _boundary_edge_ratio_for_frame(
         "h": max(1, h - 2 * dy),
     }
 
-    outer_img = _crop_roi(gray, face_roi)
+    outer_img = _crop_roi(gray, roi)
     inner_img = _crop_roi(gray, inner)
 
-    # Create a "ring" by masking inner from outer (in outer's coordinate frame)
     ring = outer_img.copy()
-    # Map inner coords into outer coords
-    ix = inner["x"] - face_roi["x"]
-    iy = inner["y"] - face_roi["y"]
+
+    ix = inner["x"] - roi["x"]
+    iy = inner["y"] - roi["y"]
     iw = inner["w"]
     ih = inner["h"]
 
@@ -335,9 +341,25 @@ def _boundary_edge_ratio_for_frame(
 
     ring_energy = _laplacian_var_u8(ring)
     inner_energy = _laplacian_var_u8(inner_img)
-
-    # Avoid division by zero
     return float(ring_energy / (inner_energy + 1e-9))
+
+
+def _background_roi(proc_w: int, proc_h: int) -> Dict[str, int]:
+    """
+    Fixed background patch (processed coords), top-left-ish.
+    Avoid center to reduce overlap with face.
+    """
+    x = int(0.05 * proc_w)
+    y = int(0.05 * proc_h)
+    w = int(0.30 * proc_w)
+    h = int(0.30 * proc_h)
+    w = max(10, w)
+    h = max(10, h)
+    if x + w >= proc_w:
+        x = max(0, proc_w - w - 1)
+    if y + h >= proc_h:
+        y = max(0, proc_h - h - 1)
+    return {"x": x, "y": y, "w": w, "h": h}
 
 
 # -------------------------
@@ -413,7 +435,6 @@ def compute_basic_signals(
     else:
         for bb in face_bbox_series_raw:
             if bb is None:
-                # rare with carry-forward, but keep safe fallback
                 fallback_mouth_o, fallback_eyes_o = _fallback_rois_center(bgr_frames[0])
                 fallback_face_o = {"x": int(0.15 * orig_w), "y": int(0.10 * orig_h), "w": int(0.70 * orig_w), "h": int(0.80 * orig_h)}
                 mouth_roi_series_s.append(_scale_roi(fallback_mouth_o))
@@ -465,39 +486,105 @@ def compute_basic_signals(
         b_e = _crop_roi(b, eyes_roi_series_s[i + 1])
         eyes_per.append(_mean_abs_diff_allow_mismatch(a_e, b_e))
 
-    def summarize(vals: List[float]) -> Tuple[float, float, float]:
+    def summarize(vals: List[float]) -> Tuple[float, float, float, float]:
         if not vals:
-            return 0.0, 0.0, 0.0
-        return float(np.mean(vals)), float(np.min(vals)), float(np.max(vals))
+            return 0.0, 0.0, 0.0, 0.0
+        arr = np.asarray(vals, dtype=np.float64)
+        return float(arr.mean()), float(arr.min()), float(arr.max()), float(np.percentile(arr, 95))
 
-    g_mean, g_min, g_max = summarize(global_per)
-    m_mean, m_min, m_max = summarize(mouth_per)
-    e_mean, e_min, e_max = summarize(eyes_per)
+    g_mean, g_min, g_max, g_p95 = summarize(global_per)
+    m_mean, m_min, m_max, m_p95 = summarize(mouth_per)
+    e_mean, e_min, e_max, e_p95 = summarize(eyes_per)
+
+    mouth_max_over_mean = float(m_max / (m_mean + 1e-9)) if m_mean > 0 else 0.0
+    eyes_max_over_mean = float(e_max / (e_mean + 1e-9)) if e_mean > 0 else 0.0
 
     if e_mean > 0:
         ratio = m_mean / e_mean
         notes.append(f"Mouth-vs-eyes motion ratio: {ratio:.2f} (higher means mouth changes more than eyes).")
     else:
-        ratio = 0.0
         notes.append("Eye motion mean is ~0; eye region appears extremely static in sampled frames.")
 
+    notes.append(f"Eyes motion p95: {e_p95:.3f}; max/mean: {eyes_max_over_mean:.2f}.")
+    notes.append(f"Mouth motion p95: {m_p95:.3f}; max/mean: {mouth_max_over_mean:.2f}.")
+
     # Blink evidence
-    eyes_rois_gray = [_crop_roi(gray_frames[i], eyes_roi_series_s[i]) for i in range(len(gray_frames))]
+    def _standardize_eye_roi(roi: np.ndarray, size=(64, 32)) -> np.ndarray:
+        # ensure float32 and fixed size so openness values are comparable across frames
+        if roi.size == 0:
+            return np.zeros((size[1], size[0]), dtype=np.float32)
+        roi_f = roi.astype(np.float32)
+        return cv2.resize(roi_f, size, interpolation=cv2.INTER_AREA)
+
+    eyes_rois_gray = []
+    for i in range(len(gray_frames)):
+        roi = _crop_roi(gray_frames[i], eyes_roi_series_s[i])
+        roi = _standardize_eye_roi(roi, size=(64, 32))
+        eyes_rois_gray.append(roi)
+
     blink = compute_blink_evidence_from_eyes_roi_series(eyes_rois_gray)
+
     if blink.get("blink_detected") is False:
         notes.append("No blink dip detected in sampled frames (heuristic).")
+    op_series = list(blink.get("eye_openness_series", []))
+    op = np.asarray(op_series, dtype=np.float64) if op_series else np.asarray([], dtype=np.float64)
 
-    # Boundary evidence
-    boundary_series: List[float] = []
+    if op.size >= 2:
+        eye_openness_range = float(op.max() - op.min())
+        mean = float(op.mean())
+        std = float(op.std())
+
+        if std > 1e-9:
+            dip_thr = mean - 1.5 * std
+            is_dip = op < dip_thr
+
+            # count blink-like events: >=2 consecutive dip frames
+            blink_like_events = 0
+            i = 0
+            while i < len(is_dip):
+                if is_dip[i]:
+                    j = i
+                    while j < len(is_dip) and is_dip[j]:
+                        j += 1
+                    if (j - i) >= 2:
+                        blink_like_events += 1
+                    i = j
+                else:
+                    i += 1
+
+            blink_dip_fraction = float(np.mean(is_dip))
+        else:
+            blink_like_events = 0
+            blink_dip_fraction = 0.0
+    else:
+        eye_openness_range = 0.0
+        blink_like_events = 0
+        blink_dip_fraction = 0.0
+
+    notes.append(f"Eye openness range (max-min): {eye_openness_range:.3f}.")
+    notes.append(f"Blink dip fraction: {blink_dip_fraction:.3f} (fraction of frames with strong openness drop).")
+
+    # Boundary evidence (face) + background calibration
+    face_boundary_series: List[float] = []
+    bg_boundary_series: List[float] = []
+
+    bg_roi = _background_roi(proc_w, proc_h)
+
     for i in range(len(gray_frames)):
-        # Use scaled face bbox ROI (if fallback, it's a center-ish region)
-        boundary_series.append(_boundary_edge_ratio_for_frame(gray_frames[i], face_roi_series_s[i], shrink_frac=0.12))
+        face_boundary_series.append(_boundary_edge_ratio_for_roi(gray_frames[i], face_roi_series_s[i], shrink_frac=0.12))
+        bg_boundary_series.append(_boundary_edge_ratio_for_roi(gray_frames[i], bg_roi, shrink_frac=0.12))
 
-    boundary_mean = float(np.mean(boundary_series)) if boundary_series else 0.0
-    boundary_std = float(np.std(boundary_series)) if boundary_series else 0.0
+    face_mean = float(np.mean(face_boundary_series)) if face_boundary_series else 0.0
+    face_std = float(np.std(face_boundary_series)) if face_boundary_series else 0.0
+    bg_mean = float(np.mean(bg_boundary_series)) if bg_boundary_series else 0.0
+    bg_std = float(np.std(bg_boundary_series)) if bg_boundary_series else 0.0
 
-    notes.append(f"Face-boundary edge ratio mean: {boundary_mean:.3f} (ring edge-energy / inner face edge-energy).")
-    notes.append(f"Face-boundary edge ratio std: {boundary_std:.3f} across sampled frames.")
+    face_over_bg = float(face_mean / (bg_mean + 1e-9)) if bg_mean > 0 else 0.0
+    face_minus_bg = float(face_mean - bg_mean)
+
+    notes.append(f"Face-boundary ratio mean: {face_mean:.3f}, std: {face_std:.3f}.")
+    notes.append(f"Background-boundary ratio mean: {bg_mean:.3f}, std: {bg_std:.3f}.")
+    notes.append(f"Boundary face_over_bg mean: {face_over_bg:.3f}; face_minus_bg mean: {face_minus_bg:.3f}.")
 
     result = EvidenceResult(
         manifest_path=str(Path(manifest_path)),
@@ -518,17 +605,25 @@ def compute_basic_signals(
         global_motion_mean=g_mean,
         global_motion_min=g_min,
         global_motion_max=g_max,
+        global_motion_p95=g_p95,
         global_per_pair_motion=global_per,
 
         mouth_motion_mean=m_mean,
         mouth_motion_min=m_min,
         mouth_motion_max=m_max,
+        mouth_motion_p95=m_p95,
+        mouth_motion_max_over_mean=mouth_max_over_mean,
         mouth_per_pair_motion=mouth_per,
 
         eyes_motion_mean=e_mean,
         eyes_motion_min=e_min,
         eyes_motion_max=e_max,
+        eyes_motion_p95=e_p95,
+        eyes_motion_max_over_mean=eyes_max_over_mean,
         eyes_per_pair_motion=eyes_per,
+        eye_openness_range=eye_openness_range,
+        blink_dip_fraction=blink_dip_fraction,
+        blink_like_events=blink_like_events,
 
         blink_detected=bool(blink.get("blink_detected", False)),
         estimated_blink_count=int(blink.get("estimated_blink_count", 0)),
@@ -537,10 +632,15 @@ def compute_basic_signals(
         openness_threshold=float(blink.get("openness_threshold", 0.0)),
         blink_method=str(blink.get("method", "unknown")),
 
-        boundary_edge_ratio_mean=boundary_mean,
-        boundary_edge_ratio_std=boundary_std,
-        boundary_edge_ratio_series=boundary_series,
+        boundary_face_ratio_mean=face_mean,
+        boundary_face_ratio_std=face_std,
+        boundary_face_ratio_series=face_boundary_series,
         boundary_method="laplacian_var_ring_over_inner",
+
+        boundary_bg_ratio_mean=bg_mean,
+        boundary_bg_ratio_std=bg_std,
+        boundary_face_over_bg_mean=face_over_bg,
+        boundary_face_minus_bg_mean=face_minus_bg,
 
         notes=notes,
     )
