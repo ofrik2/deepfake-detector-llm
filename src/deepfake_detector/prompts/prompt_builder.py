@@ -37,6 +37,14 @@ def build_prompt_text(llm_input: Dict[str, Any]) -> str:
         lines.append(f"- Mouth-region motion mean abs diff: {evidence.get('mouth_motion_mean')}")
     if "eyes_motion_mean" in evidence:
         lines.append(f"- Eye-region motion mean abs diff: {evidence.get('eyes_motion_mean')}")
+    if "face_bbox_none_ratio" in evidence:
+        lines.append(f"- Face detection missing ratio: {evidence['face_bbox_none_ratio']}")
+        lines.append(f"- Face bbox center jitter mean (normalized): {evidence['face_bbox_center_jitter_mean']}")
+        lines.append(f"- Face bbox size jitter mean (normalized): {evidence['face_bbox_size_jitter_mean']}")
+    # Boundary evidence
+    if "boundary_edge_ratio_mean" in evidence:
+        lines.append(f"- Face-boundary edge ratio mean (ring/inner): {evidence['boundary_edge_ratio_mean']}")
+        lines.append(f"- Face-boundary edge ratio std: {evidence['boundary_edge_ratio_std']}")
 
     if notes:
         lines.append("- Notes:")
