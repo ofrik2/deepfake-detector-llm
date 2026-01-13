@@ -36,9 +36,23 @@ def build_prompt_text(llm_input: Dict[str, Any]) -> str:
     # ---- Interpretation hints (keep short + consistent) ----
     lines.append("")
     lines.append("How to interpret the evidence (heuristics):")
-    lines.append("- If boundary_face_over_bg_mean > 1.5, it may indicate compositing/mask-edge artifacts.")
-    lines.append("- If blink_dip_fraction is near 0 and eye_openness_range is very small, blinking may be absent (possible manipulation).")
-    lines.append("- Stable face detection + low bbox jitter supports consistency, but does not guarantee REAL.")
+
+    lines.append("- Boundary calibration:")
+    lines.append(
+        "  - High boundary_face_over_bg_mean (e.g., >1.5) can indicate a face mask edge or compositing artifact.")
+    lines.append(
+        "  - Low boundary_face_over_bg_mean (<=1.0) or negative boundary_face_minus_bg_mean is usually NOT suspicious by itself;")
+    lines.append("    it often occurs when the background has stronger edges or texture than the face region.")
+
+    lines.append("- Blinking behavior:")
+    lines.append(
+        "  - If blink_dip_fraction is near 0 AND blink_like_events == 0, blinking is likely absent or unnaturally rare.")
+    lines.append("  - Absence of blinking over many frames can be indicative of manipulation.")
+
+    lines.append("- Motion consistency:")
+    lines.append(
+        "  - If eyes_over_mouth_motion_ratio is very low AND blinking is minimal, eyes may be unnaturally static relative to mouth motion.")
+    lines.append("  - Stable face detection + low bbox jitter supports consistency, but does not guarantee REAL.")
 
     # Motion evidence
     if "global_motion_mean" in evidence:
