@@ -75,9 +75,12 @@ def run_quality_checks(
             if sample_frames >= meta.frame_count:
                 idxs = list(range(meta.frame_count))
             else:
-                for i in range(sample_frames):
-                    pos = round(i * (meta.frame_count - 1) / (sample_frames - 1))
-                    idxs.append(int(pos))
+                if sample_frames == 1:
+                    idxs = [0]
+                else:
+                    for i in range(sample_frames):
+                        pos = round(i * (meta.frame_count - 1) / (sample_frames - 1))
+                        idxs.append(int(pos))
 
             brightness_vals: List[float] = []
             blur_vals: List[float] = []

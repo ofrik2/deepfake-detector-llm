@@ -15,7 +15,7 @@ class Decision:
 
 
 _LABEL_RE = re.compile(r"^\s*Label\s*:\s*(REAL|MANIPULATED|UNCERTAIN)\s*$", re.IGNORECASE | re.MULTILINE)
-_REASON_RE = re.compile(r"^\s*Reason\s*:\s*(.+)\s*$", re.IGNORECASE | re.MULTILINE)
+_REASON_RE = re.compile(r"^\s*Reason\s*:\s*(.+)\s*$", re.IGNORECASE | re.MULTILINE | re.DOTALL)
 
 
 def parse_llm_output(raw_text: str) -> Decision:

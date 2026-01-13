@@ -5,3 +5,10 @@ venv/
 
 # Results
 /runs/
+
+# Python packaging
+*.egg-info/
+__pycache__/
+dist/
+build/
+*.pyc

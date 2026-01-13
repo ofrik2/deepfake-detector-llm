@@ -66,6 +66,8 @@ def _uniform_indices(frame_count: int, num_frames: int) -> List[int]:
         return []
     if num_frames <= 0:
         return []
+    if num_frames == 1:
+        return [0]
     if num_frames >= frame_count:
         return list(range(frame_count))
 
