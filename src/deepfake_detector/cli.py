@@ -14,7 +14,7 @@ def main():
     detect = sub.add_parser("detect", help="Run detection pipeline on a video")
     detect.add_argument("--video", required=True, help="Path to input video")
     detect.add_argument("--out", required=True, help="Output directory for artifacts")
-    detect.add_argument("--llm", default="mock", choices=["mock"], help="LLM backend")
+    detect.add_argument("--llm", default="mock", choices=["mock", "azure"], help="LLM backend")
     detect.add_argument("--num-frames", type=int, default=12)
     detect.add_argument("--max-keyframes", type=int, default=8)
 

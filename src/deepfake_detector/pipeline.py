@@ -66,8 +66,11 @@ def run_pipeline(
 
     if llm_backend == "mock":
         client = MockLLMClient()
+    elif llm_backend == "azure":
+        from .llm.azure_client import AzureOpenAIClient
+        client = AzureOpenAIClient()
     else:
-        raise ValueError(f"Unsupported llm_backend right now: {llm_backend}")
+        raise ValueError(f"Unsupported llm_backend: {llm_backend}")
 
     resp = client.generate(prompt=prompt_text, image_paths=image_paths)
 
