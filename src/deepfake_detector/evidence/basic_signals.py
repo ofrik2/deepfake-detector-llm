@@ -529,14 +529,19 @@ def compute_basic_signals(
     op_series = list(blink.get("eye_openness_series", []))
     op = np.asarray(op_series, dtype=np.float64) if op_series else np.asarray([], dtype=np.float64)
 
+    # Normalize openness series so range is comparable (robust z-score)
+    med = float(np.median(op))
+    mad = float(np.median(np.abs(op - med))) + 1e-9
+    op_n = (op - med) / mad
+
     if op.size >= 2:
-        eye_openness_range = float(op.max() - op.min())
+        eye_openness_range = float(op_n.max() - op_n.min())
         mean = float(op.mean())
         std = float(op.std())
 
         if std > 1e-9:
-            dip_thr = mean - 1.5 * std
-            is_dip = op < dip_thr
+            dip_thr = float(op_n.mean() - 1.5 * op_n.std())
+            is_dip = op_n < dip_thr
 
             # count blink-like events: >=2 consecutive dip frames
             blink_like_events = 0
@@ -560,6 +565,7 @@ def compute_basic_signals(
         eye_openness_range = 0.0
         blink_like_events = 0
         blink_dip_fraction = 0.0
+
 
     notes.append(f"Eye openness range (max-min): {eye_openness_range:.3f}.")
     notes.append(f"Blink dip fraction: {blink_dip_fraction:.3f} (fraction of frames with strong openness drop).")
