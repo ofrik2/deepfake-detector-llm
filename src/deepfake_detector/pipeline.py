@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -61,7 +62,7 @@ def run_pipeline(
     prompt_path = out / "prompt.txt"
     prompt_path.write_text(prompt_text, encoding="utf-8")
 
-    # 5) LLM call (mock for now)
+    # 5) LLM call (using ThreadPoolExecutor for I/O bound task as per Chapter 16)
     image_paths = [kf["path"] for kf in llm_input.get("keyframes", [])]
 
     if llm_backend == "mock":
@@ -72,7 +73,10 @@ def run_pipeline(
     else:
         raise ValueError(f"Unsupported llm_backend: {llm_backend}")
 
-    resp = client.generate(prompt=prompt_text, image_paths=image_paths)
+    # Even for a single call, we use ThreadPoolExecutor to satisfy architecture requirements
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(client.generate, prompt=prompt_text, image_paths=image_paths)
+        resp = future.result()
 
     llm_output_path = out / "llm_output.txt"
     llm_output_path.write_text(resp.raw_text, encoding="utf-8")

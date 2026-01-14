@@ -10,19 +10,48 @@ The system receives a video and outputs a classification: REAL or DEEPFAKE, usin
 
 ## 2. High-Level System Flow
 
-Pipeline (conceptual):
+### 2.1 C4 Context Diagram
+The system interacts with a User (who provides a video) and an External LLM Provider (Azure OpenAI) to perform reasoning.
 
-1) Video Input
-2) Frame Extraction + Preprocessing
-3) Frame Summarization (structured observations)
-4) Prompt Construction (template-driven)
-5) LLM Inference (single or multiple calls)
-6) Decision Aggregation (final label + evidence)
-7) Report Output (JSON + optional explanation)
+```mermaid
+graph LR
+    User((User)) -->|Provides Video| System[Deepfake Detector LLM]
+    System -->|Prompt + Evidence| LLM[Azure OpenAI / Gemini]
+    LLM -->|Decision + Reasoning| System
+    System -->|Report| User
+```
+
+### 2.2 C4 Container Diagram (Key Modules)
+- **CLI**: Entry point for user commands.
+- **Pipeline Orchestrator**: Manages data flow between blocks.
+- **Forensic Engine**: Extracts evidence from video frames.
+- **LLM Client**: Handles communication with the AI model.
 
 ---
 
-## 3. Directory Layout (Conceptual)
+## 3. Architecture Decision Records (ADRs)
+
+### ADR 1: LLM-Assisted Reasoning vs. Direct Vision
+- **Status**: Accepted
+- **Context**: Traditionally, deepfake detection is a vision task. However, vision models are often "black boxes".
+- **Decision**: Use LLMs to reason over *extracted* forensic evidence (textual/structured data).
+- **Consequences**: Improved interpretability; easier to update detection logic via prompts; requires robust feature extraction.
+
+### ADR 2: Building Block Design Pattern
+- **Status**: Accepted
+- **Context**: The system needs to be extensible for new forensic signals.
+- **Decision**: Implement each module as an "independent building block" with defined Input/Output/Setup contracts.
+- **Consequences**: High testability; modules can be replaced (e.g., swapping OpenCV for a different video backend) without side effects.
+
+### ADR 3: State-on-Disk for Artifacts
+- **Status**: Accepted
+- **Context**: Debugging LLM reasoning requires seeing exactly what the model saw.
+- **Decision**: Persist frames, evidence, and prompts to the `runs/` directory for every execution.
+- **Consequences**: Disk usage increases, but transparency and reproducibility are maximized.
+
+---
+
+## 4. Directory Layout (Conceptual)
 
 - src/deepfake_detector/
   - cli.py                 Command-line entry point
@@ -66,48 +95,38 @@ Pipeline (conceptual):
 
 ---
 
-## 4. Building Blocks and Interfaces
+## 5. Building Blocks and Interfaces
 
-This project is designed as a set of “building blocks”. Each block has:
-- Input data
-- Output data
-- Setup/config data
-- Validation rules
-- Clear error behavior
+This project is designed as a set of “building blocks” (Chapter 17 of Guidelines). Each block is a self-contained unit with:
+- **Input Data**: Required runtime information (e.g., video path, frames).
+- **Output Data**: The result produced by the block (e.g., extracted evidence).
+- **Setup Data**: Configuration/parameters (e.g., threshold, model name).
 
 The goal is that blocks can be tested independently and replaced without changing the whole system.
 
-### 4.1 Block: VideoReader
-Responsibility:
-- Load a video file
-- Extract metadata (fps, duration, resolution)
-- Provide access to frames for downstream processing
+### 5.1 Block: VideoReader
+- **Responsibility**: Load a video file and extract frames/metadata.
+- **Input Data**: `video_path` (str)
+- **Output Data**: `VideoMeta` object and frame iterable.
+- **Setup Data**: Backend choice (OpenCV), `max_duration_seconds`.
+- **Validation**: Checks if file exists, is a valid video, and has > 0 frames.
+- **Module**: `src/deepfake_detector/video/reader.py`
 
-Input:
-- video_path: str
+### 5.2 Block: BlinkDetector
+- **Responsibility**: Analyze eye ROIs across frames to detect blink events.
+- **Input Data**: `eyes_rois_gray` (List[np.ndarray])
+- **Output Data**: `BlinkEvidence` (count, confidence, series).
+- **Setup Data**: `openness_threshold`, smoothing parameters.
+- **Validation**: Ensures ROIs are not empty and have consistent dimensions.
+- **Module**: `src/deepfake_detector/evidence/blink.py`
 
-Output:
-- video_meta: (fps, width, height, frame_count, duration)
-- frame_iterable: iterator/stream of frames (lazy where possible)
-
-Setup:
-- backend choice (OpenCV)
-- max_duration_seconds (optional safety limit)
-
-Validation:
-- File exists and readable
-- Supported video format
-- Non-zero frames
-
-Failure modes:
-- File not found
-- Corrupted video
-- Unsupported codec/container
-
-Module:
-- src/deepfake_detector/video/reader.py
-
----
+### 5.3 Block: LLMClient
+- **Responsibility**: Send prompts to an LLM and receive structured reasoning.
+- **Input Data**: `prompt_text` (str), `images` (Optional).
+- **Output Data**: `LLMResponse` (raw text, parsed decision).
+- **Setup Data**: `api_key`, `endpoint`, `model_name`, `temperature`.
+- **Validation**: API key presence, response format validation.
+- **Module**: `src/deepfake_detector/llm/client_base.py`
 
 ### 4.2 Block: FrameExtractor / Preprocessor
 Responsibility:

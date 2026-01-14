@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import os
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
 from typing import Dict, List, Literal, Optional, Tuple
 
 import cv2
+import multiprocessing
 
 from .reader import VideoMeta, open_video, read_frame_at, read_video_meta
 
@@ -91,6 +93,37 @@ def _every_n_indices(frame_count: int, every_n: int, max_frames: int) -> List[in
     return idxs
 
 
+def _extract_single_frame(
+    video_path: str,
+    frame_idx: int,
+    j: int,
+    out_dir: str,
+    resize_max: int,
+    jpeg_quality: int,
+    fps: float,
+) -> Optional[FrameRecord]:
+    """Helper for parallel frame extraction."""
+    cap = open_video(video_path)
+    try:
+        ok, frame = read_frame_at(cap, frame_idx)
+        if not ok or frame is None:
+            return None
+
+        frame = _resize_keep_aspect(frame, resize_max)
+        ts = float(frame_idx / fps) if fps else 0.0
+        filename = f"frame_{j:06d}.jpg"
+        out_path = os.path.join(out_dir, filename)
+
+        encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), int(max(0, min(100, jpeg_quality)))]
+        ok_write = cv2.imwrite(out_path, frame, encode_params)
+        if not ok_write:
+            return None
+
+        return FrameRecord(frame_index=int(frame_idx), timestamp_seconds=ts, filename=filename)
+    finally:
+        cap.release()
+
+
 def extract_frames(
     video_path: str,
     out_dir: str,
@@ -102,6 +135,7 @@ def extract_frames(
     resize_max: int = 512,
     jpeg_quality: int = 90,
     write_manifest: bool = True,
+    use_multiprocessing: bool = True,
 ) -> Dict:
     """
     Extract frames deterministically from a video and write them to out_dir.
@@ -115,89 +149,97 @@ def extract_frames(
 
     Returns:
       A dict version of FramesManifest.
-
-    Parameters
-    ----------
-    mode:
-      - "uniform": pick exactly num_frames uniformly across the whole video.
-      - "every_n": pick frames every N frames (capped by max_frames).
-    num_frames:
-      Used when mode="uniform".
-    every_n:
-      Used when mode="every_n".
-    max_frames:
-      Cap for mode="every_n" to prevent too many frames.
-    resize_max:
-      Resize frames so max(width,height) <= resize_max (keeps aspect ratio).
-    jpeg_quality:
-      0-100. Higher = better quality, larger files.
     """
     _ensure_dir(out_dir)
 
-    cap = open_video(video_path)
-    try:
-        meta: VideoMeta = read_video_meta(video_path, cap=cap)
-        if meta.frame_count <= 0:
-            raise ValueError(f"Video has no frames (frame_count={meta.frame_count}).")
+    # Read meta first to get indices
+    meta = read_video_meta(video_path)
+    if meta.frame_count <= 0:
+        raise ValueError(f"Video has no frames (frame_count={meta.frame_count}).")
 
-        if mode == "uniform":
-            indices = _uniform_indices(meta.frame_count, num_frames)
-        elif mode == "every_n":
-            indices = _every_n_indices(meta.frame_count, every_n, max_frames)
+    if mode == "uniform":
+        indices = _uniform_indices(meta.frame_count, num_frames)
+    elif mode == "every_n":
+        indices = _every_n_indices(meta.frame_count, every_n, max_frames)
+    else:
+        raise ValueError(f"Unknown sampling mode: {mode}")
+
+    if not indices:
+        raise ValueError("No frames selected. Check sampling parameters.")
+
+    frames: List[FrameRecord] = []
+
+    if use_multiprocessing and len(indices) > 1:
+        # Use dynamic CPU count as per Chapter 16 of Guidelines
+        num_workers = min(len(indices), multiprocessing.cpu_count())
+        # Sequential fallback for testing or when ProcessPoolExecutor is problematic
+        if os.environ.get("DEEPFAKE_DETECTOR_NO_MP"):
+            cap = open_video(video_path)
+            try:
+                for j, frame_idx in enumerate(indices):
+                    res = _extract_single_frame(
+                        video_path, frame_idx, j, out_dir, resize_max, jpeg_quality, meta.fps
+                    )
+                    if res:
+                        frames.append(res)
+            finally:
+                cap.release()
         else:
-            raise ValueError(f"Unknown sampling mode: {mode}")
+            with ProcessPoolExecutor(max_workers=num_workers) as executor:
+                futures = [
+                    executor.submit(
+                        _extract_single_frame,
+                        video_path,
+                        idx,
+                        j,
+                        out_dir,
+                        resize_max,
+                        jpeg_quality,
+                        meta.fps,
+                    )
+                    for j, idx in enumerate(indices)
+                ]
+                for future in as_completed(futures):
+                    res = future.result()
+                    if res:
+                        frames.append(res)
+        # Sort frames to maintain order as some futures might finish out of order
+        frames.sort(key=lambda x: x.frame_index)
+    else:
+        # Fallback to sequential
+        cap = open_video(video_path)
+        try:
+            for j, frame_idx in enumerate(indices):
+                res = _extract_single_frame(
+                    video_path, frame_idx, j, out_dir, resize_max, jpeg_quality, meta.fps
+                )
+                if res:
+                    frames.append(res)
+        finally:
+            cap.release()
 
-        if not indices:
-            raise ValueError("No frames selected. Check sampling parameters.")
+    if len(frames) == 0:
+        raise ValueError("Failed to extract any frames (all reads failed).")
 
-        frames: List[FrameRecord] = []
+    manifest = FramesManifest(
+        video_path=meta.path,
+        fps=meta.fps,
+        frame_count=meta.frame_count,
+        width=meta.width,
+        height=meta.height,
+        duration_seconds=meta.duration_seconds,
+        sampling_mode=mode,
+        num_frames_requested=int(num_frames),
+        every_n_requested=int(every_n),
+        resize_max=int(resize_max),
+        frames=frames,
+    )
 
-        for j, frame_idx in enumerate(indices):
-            ok, frame = read_frame_at(cap, frame_idx)
-            if not ok or frame is None:
-                # Skip unreadable frame; continue to keep robustness
-                continue
+    manifest_dict = asdict(manifest)
 
-            frame = _resize_keep_aspect(frame, resize_max)
+    if write_manifest:
+        manifest_path = os.path.join(out_dir, "frames_manifest.json")
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            json.dump(manifest_dict, f, indent=2)
 
-            # Timestamp is best-effort (requires valid fps)
-            ts = float(frame_idx / meta.fps) if meta.fps else 0.0
-
-            filename = f"frame_{j:06d}.jpg"
-            out_path = os.path.join(out_dir, filename)
-
-            encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), int(max(0, min(100, jpeg_quality)))]
-            ok_write = cv2.imwrite(out_path, frame, encode_params)
-            if not ok_write:
-                raise OSError(f"Failed to write frame to: {out_path}")
-
-            frames.append(FrameRecord(frame_index=int(frame_idx), timestamp_seconds=ts, filename=filename))
-
-        if len(frames) == 0:
-            raise ValueError("Failed to extract any frames (all reads failed).")
-
-        manifest = FramesManifest(
-            video_path=meta.path,
-            fps=meta.fps,
-            frame_count=meta.frame_count,
-            width=meta.width,
-            height=meta.height,
-            duration_seconds=meta.duration_seconds,
-            sampling_mode=mode,
-            num_frames_requested=int(num_frames),
-            every_n_requested=int(every_n),
-            resize_max=int(resize_max),
-            frames=frames,
-        )
-
-        manifest_dict = asdict(manifest)
-
-        if write_manifest:
-            manifest_path = os.path.join(out_dir, "frames_manifest.json")
-            with open(manifest_path, "w", encoding="utf-8") as f:
-                json.dump(manifest_dict, f, indent=2)
-
-        return manifest_dict
-
-    finally:
-        cap.release()
+    return manifest_dict

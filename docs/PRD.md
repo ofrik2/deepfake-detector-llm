@@ -33,6 +33,18 @@ This project explores whether a general-purpose LLM, when provided with structur
 - Produces consistent results across repeated runs
 - Outputs results in a structured and machine-readable format
 
+### 3.3 Key Performance Indicators (KPIs)
+- **Detection Accuracy**: Achieve >85% accuracy on the provided test dataset (balanced REAL/DEEPFAKE).
+- **False Positive Rate**: Maintain <10% false positive rate on high-quality real videos.
+- **Inference Time**: Complete analysis of a 10-second video in under 60 seconds (excluding LLM queue time).
+- **Cost Efficiency**: Average cost per video analysis under $0.10 using optimized prompt strategies.
+
+### 3.4 Acceptance Criteria
+- [AC 1] System must accept MP4 files and extract at least 10 frames per video.
+- [AC 2] The LLM reasoning must cite specific evidence (e.g., "no blinks detected") found in the visual summary.
+- [AC 3] Output must be a valid JSON containing `decision`, `confidence`, and `reasoning`.
+- [AC 4] All forensic signals (blink, boundary, stability) must be computed for every run.
+
 ---
 
 ## 4. Non-Goals

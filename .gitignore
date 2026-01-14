@@ -12,3 +12,6 @@ __pycache__/
 dist/
 build/
 *.pyc
+
+# IDEs and editors
+.idea/
