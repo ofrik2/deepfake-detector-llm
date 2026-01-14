@@ -103,6 +103,8 @@ You can fine-tune the detection process with the following arguments:
 
 - `--num-frames <int>`: (Default: 12) Total frames to extract from the video. More frames provide better temporal coverage but increase processing time.
 - `--max-keyframes <int>`: (Default: 8) Maximum number of images to send to the LLM. Fewer keyframes reduce token costs.
+- `--detector <name>`: (Default: llm) The detector plugin to use.
+- `--list-detectors`: List all available detector plugins.
 - `--llm {mock,azure}`: (Default: mock) Choose the backend.
 
 **Example: High-fidelity analysis**

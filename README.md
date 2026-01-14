@@ -1,7 +1,7 @@
 # Deepfake Detection with LLM-Assisted Evidence Reasoning
 
+[![Tests](https://github.com/username/deepfake-detector-llm/actions/workflows/tests.yml/badge.svg)](https://github.com/username/deepfake-detector-llm/actions/workflows/tests.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-149%20passing-brightgreen.svg)](tests/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A research project exploring whether Large Language Models can assist in deepfake video detection when provided with explicit, interpretable forensic evidence rather than raw video data.
@@ -716,84 +716,37 @@ The codebase includes **149 unit tests** providing extensive coverage across all
 
 ### Running Tests
 
-**Run all tests:**
+To run the full test suite locally, ensure you have installed the development dependencies:
+
 ```bash
-python -m pytest tests/ -v
+pip install -e ".[dev]"
 ```
 
-**Run specific test file:**
+Then execute pytest from the project root:
+
 ```bash
-python -m pytest tests/test_evidence_blink.py -v
+pytest
 ```
 
-**Run with coverage report:**
+For a quick run (quiet mode):
+
 ```bash
-python -m pytest tests/ --cov=src/deepfake_detector --cov-report=html
+pytest -q
 ```
 
-**Quick validation (quiet mode):**
+To check code coverage:
+
 ```bash
-python -m pytest tests/ -q
+pytest --cov=src/deepfake_detector --cov-report=term-missing
 ```
 
-### Pre-Commit Hook
+### Continuous Integration (CI)
 
-A pre-commit Git hook automatically runs the full test suite before each commit, preventing commits with failing tests.
+This repository uses GitHub Actions for continuous integration. The [Tests workflow](.github/workflows/tests.yml) automatically runs on every push and pull request to `main` and `master` branches.
 
-**Hook Details:**
-- **Location**: `.git/hooks/pre-commit`
-- **Action**: Executes `python -m pytest tests/ -q`
-- **Behavior**: 
-  - Blocks commit if any test fails
-  - Displays failure details for debugging
-  - Passes silently on success
-
-**Hook Script:**
-```bash
-#!/bin/bash
-echo "Running unit tests..." >&2
-python -m pytest tests/ -q >&2
-if [ $? -ne 0 ]; then
-    echo "Tests failed, commit aborted." >&2
-    exit 1
-fi
-echo "Tests passed." >&2
-```
-
-This ensures:
-- No broken code is committed
-- Continuous validation of changes
-- Team-wide code quality maintenance
-- Quick feedback loop during development
-
-**Installing the Hook:**
-
-The pre-commit hook is already included in the repository. For new clones:
-```bash
-# Verify hook is executable
-chmod +x .git/hooks/pre-commit
-```
-
-### Code Quality Tools
-
-Beyond testing, the project uses additional quality tools:
-
-**Black** (code formatter):
-```bash
-black src/ tests/ --line-length=100
-```
-
-**isort** (import sorting):
-```bash
-isort src/ tests/ --profile=black
-```
-
-**mypy** (static type checking):
-```bash
-mypy src/ --python-version=3.9
-```
-
-These tools ensure consistent code style and catch type errors before runtime.
+The CI pipeline performs the following steps:
+1.  **Test Job**: Runs the full test suite on Python 3.10 and 3.11.
+2.  **Lint Job**: Checks code formatting and quality using `ruff`, `black`, and `isort`.
 
 ---
 
@@ -1011,11 +964,11 @@ This project implements a comprehensive deepfake detection system with numerous 
 
 ### Core Capabilities
 
-**1. Modular Pipeline Architecture**
-- Each processing stage is independent and testable
-- Clear data contracts between components
-- Easy to extend with new evidence types or LLM providers
-- Artifacts saved at each stage for inspection and debugging
+**1. Modular Plugin Architecture**
+- **Extensible Detectors**: Add new detection logic without modifying the core pipeline.
+- **Dynamic Discovery**: Detectors are automatically discovered from `src/deepfake_detector/detectors/`, a `plugins/` folder at the repo root, or via the `DEEPFAKE_DETECTOR_PLUGINS_PATH` environment variable.
+- **CLI Integration**: Select detectors via `--detector <name>` and list available ones with `--list-detectors`.
+- Artifacts saved at each stage for inspection and debugging.
 
 **2. Multiple LLM Backend Support**
 - **Azure OpenAI**: Production-ready vision model integration
@@ -1241,6 +1194,35 @@ def process_frame(
 - Docstrings for all public functions and classes
 - Inline comments for complex logic
 - Update README for user-facing changes
+
+### Adding a New Detector Plugin
+
+**1. Create the Detector Class:**
+Create a new Python file (e.g., `my_detector.py`) in `src/deepfake_detector/detectors/` or a `plugins/` folder at the repo root.
+
+```python
+from src.deepfake_detector.detectors.base import BaseDetector, DetectorResult
+from src.deepfake_detector.detectors.registry import register_detector
+
+@register_detector("my-custom-detector")
+class MyCustomDetector(BaseDetector):
+    @property
+    def name(self) -> str:
+        return "my-custom-detector"
+
+    def detect(self, video_path, out_dir, config=None) -> DetectorResult:
+        # Implementation logic here
+        return DetectorResult(
+            label="REAL",
+            rationale="Explanation of the decision",
+            evidence_used=["path/to/evidence.json"]
+        )
+```
+
+**2. Use from CLI:**
+```bash
+deepfake-detector detect --video video.mp4 --out results/ --detector my-custom-detector
+```
 
 ### Adding New Evidence Types
 
