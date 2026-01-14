@@ -1,29 +1,36 @@
-import os
 import importlib.util
-import sys
 import logging
+import os
+import sys
 from pathlib import Path
-from typing import Dict, Type, List, Optional
+from typing import Dict, List, Optional, Type
+
 from .base import BaseDetector
 
 logger = logging.getLogger(__name__)
 
 _REGISTRY: Dict[str, Type[BaseDetector]] = {}
 
+
 def register_detector(name: str):
     """Decorator to register a detector class."""
+
     def decorator(cls: Type[BaseDetector]):
         _REGISTRY[name] = cls
         return cls
+
     return decorator
+
 
 def get_detector(name: str) -> Optional[Type[BaseDetector]]:
     """Return the detector class for a given name."""
     return _REGISTRY.get(name)
 
+
 def list_detectors() -> List[str]:
     """Return a list of registered detector names."""
     return sorted(list(_REGISTRY.keys()))
+
 
 def discover_plugins():
     """
@@ -32,7 +39,7 @@ def discover_plugins():
     # 1. Load built-in detectors
     # For built-ins, we can just import them if they are in the package
     try:
-        from . import llm_detector
+        import src.deepfake_detector.detectors.llm_detector  # noqa: F401
     except ImportError:
         # Fallback to dynamic loading if not in package context
         built_in_dir = Path(__file__).parent
@@ -51,12 +58,13 @@ def discover_plugins():
             if path.exists() and path.is_dir():
                 _load_from_dir(path)
 
+
 def _load_from_dir(directory: Path):
     """Safely load python modules from a directory."""
     for file in directory.glob("*.py"):
         if file.name == "__init__.py" or file.name == "base.py" or file.name == "registry.py":
             continue
-        
+
         try:
             # Generate a unique module name for the plugin
             module_name = f"detector_plugin_{file.stem}"

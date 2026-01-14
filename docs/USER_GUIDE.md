@@ -30,7 +30,7 @@ For production runs (using actual LLMs), you will also need:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/username/deepfake-detector-llm.git
+   git clone https://github.com/ofrik2/deepfake-detector-llm.git
    cd deepfake-detector-llm
    ```
 

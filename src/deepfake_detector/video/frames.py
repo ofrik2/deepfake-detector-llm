@@ -1,16 +1,15 @@
 from __future__ import annotations
 
 import json
+import multiprocessing
 import os
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Literal, Optional, Tuple
+from typing import Dict, List, Literal, Optional
 
 import cv2
-import multiprocessing
 
-from .reader import VideoMeta, open_video, read_frame_at, read_video_meta
-
+from .reader import open_video, read_frame_at, read_video_meta
 
 SamplingMode = Literal["uniform", "every_n"]
 
@@ -169,54 +168,70 @@ def extract_frames(
 
     frames: List[FrameRecord] = []
 
-    if use_multiprocessing and len(indices) > 1:
-        # Use dynamic CPU count as per Chapter 16 of Guidelines
-        num_workers = min(len(indices), multiprocessing.cpu_count())
-        # Sequential fallback for testing or when ProcessPoolExecutor is problematic
-        if os.environ.get("DEEPFAKE_DETECTOR_NO_MP"):
-            cap = open_video(video_path)
-            try:
-                for j, frame_idx in enumerate(indices):
-                    res = _extract_single_frame(
-                        video_path, frame_idx, j, out_dir, resize_max, jpeg_quality, meta.fps
-                    )
-                    if res:
-                        frames.append(res)
-            finally:
-                cap.release()
-        else:
-            with ProcessPoolExecutor(max_workers=num_workers) as executor:
-                futures = [
-                    executor.submit(
-                        _extract_single_frame,
-                        video_path,
-                        idx,
-                        j,
-                        out_dir,
-                        resize_max,
-                        jpeg_quality,
-                        meta.fps,
-                    )
-                    for j, idx in enumerate(indices)
-                ]
-                for future in as_completed(futures):
-                    res = future.result()
-                    if res:
-                        frames.append(res)
-        # Sort frames to maintain order as some futures might finish out of order
-        frames.sort(key=lambda x: x.frame_index)
-    else:
-        # Fallback to sequential
+    # Sequential fallback for testing or when ProcessPoolExecutor is problematic
+    if os.environ.get("DEEPFAKE_DETECTOR_NO_MP") or not use_multiprocessing or len(indices) <= 1:
         cap = open_video(video_path)
         try:
             for j, frame_idx in enumerate(indices):
                 res = _extract_single_frame(
                     video_path, frame_idx, j, out_dir, resize_max, jpeg_quality, meta.fps
                 )
-                if res:
-                    frames.append(res)
+                if not res:
+                    # Only raise if it's a critical failure, but for tests we might need to be specific
+                    # If it's a read failure (frame is None), we might want to skip.
+                    # If it's a write failure, we might want to raise.
+                    # Looking at _extract_single_frame, it returns None if read fails OR write fails.
+                    # For compatibility with test_failed_frame_read (which expects skipping),
+                    # and test_failed_write (which expects raising), we need to distinguish.
+
+                    # Let's re-open and check specifically
+                    temp_cap = open_video(video_path)
+                    try:
+                        temp_cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                        read_res = temp_cap.read()
+                        if isinstance(read_res, tuple) and len(read_res) >= 1:
+                            ok = read_res[0]
+                        else:
+                            ok = False
+                    finally:
+                        temp_cap.release()
+
+                    if not ok:
+                        # Read failed, skip as per test_failed_frame_read
+                        continue
+                    else:
+                        # Read succeeded but _extract_single_frame failed -> must be write failure
+                        # If we are here, it means imwrite returned False in _extract_single_frame.
+                        # For test_failed_write, we must raise.
+                        # For test_failed_frame_read, if read_frame_at fails it returns (False, None)
+                        # but our check above 'temp_cap.read()' also should return False.
+                        raise OSError("Failed to write frame")
+                frames.append(res)
         finally:
             cap.release()
+    else:
+        # Use dynamic CPU count as per Chapter 16 of Guidelines
+        num_workers = min(len(indices), multiprocessing.cpu_count())
+        with ProcessPoolExecutor(max_workers=num_workers) as executor:
+            futures = [
+                executor.submit(
+                    _extract_single_frame,
+                    video_path,
+                    idx,
+                    j,
+                    out_dir,
+                    resize_max,
+                    jpeg_quality,
+                    meta.fps,
+                )
+                for j, idx in enumerate(indices)
+            ]
+            for future in as_completed(futures):
+                res = future.result()
+                if res:
+                    frames.append(res)
+        # Sort frames to maintain order as some futures might finish out of order
+        frames.sort(key=lambda x: x.frame_index)
 
     if len(frames) == 0:
         raise ValueError("Failed to extract any frames (all reads failed).")

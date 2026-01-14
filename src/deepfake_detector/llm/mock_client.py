@@ -49,7 +49,9 @@ class MockLLMClient(LLMClient):
                 reason = "Mouth and eye-region motion are of similar magnitude, consistent with natural speaking and blinking/head motion."
             else:
                 label = "UNCERTAIN"
-                reason = "Motion distribution is not clearly indicative of real or manipulated content."
+                reason = (
+                    "Motion distribution is not clearly indicative of real or manipulated content."
+                )
 
         text = f"Label: {label}\nReason: {reason}"
         return LLMResponse(raw_text=text, model_name=self.model_name, usage=None)

@@ -1,5 +1,3 @@
-import pytest
-
 from src.deepfake_detector.llm.client_base import LLMResponse
 from src.deepfake_detector.llm.mock_client import MockLLMClient, _extract_float
 
@@ -53,7 +51,9 @@ class TestMockLLMClient:
         response = client.generate(prompt=prompt)
 
         assert "MANIPULATED" in response.raw_text
-        assert "Mouth motion is present while eye-region motion is extremely low" in response.raw_text
+        assert (
+            "Mouth motion is present while eye-region motion is extremely low" in response.raw_text
+        )
 
     def test_generate_manipulated_ratio_based(self):
         client = MockLLMClient()
@@ -108,7 +108,7 @@ class TestMockLLMClient:
         response = client.generate(prompt=prompt)
 
         # Should follow the expected format
-        lines = response.raw_text.strip().split('\n')
+        lines = response.raw_text.strip().split("\n")
         assert len(lines) == 2
         assert lines[0].startswith("Label: ")
         assert lines[1].startswith("Reason: ")

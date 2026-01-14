@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import json
 import os
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -32,10 +32,10 @@ import numpy as np
 
 from .blink import compute_blink_evidence_from_eyes_roi_series
 
-
 # -------------------------
 # Data structures
 # -------------------------
+
 
 @dataclass(frozen=True)
 class EvidenceResult:
@@ -49,7 +49,7 @@ class EvidenceResult:
     face_bbox: Optional[Dict[str, int]]  # representative bbox if available
     face_bbox_series: List[Optional[Dict[str, int]]]  # per-frame bbox dict or None
     mouth_roi: Dict[str, int]  # representative ROI in original coords
-    eyes_roi: Dict[str, int]   # representative ROI in original coords
+    eyes_roi: Dict[str, int]  # representative ROI in original coords
 
     # Face bbox jitter (stability)
     face_bbox_none_ratio: float
@@ -109,6 +109,7 @@ class EvidenceResult:
 # Manifest + IO
 # -------------------------
 
+
 def _load_manifest(manifest_path: str) -> Dict[str, Any]:
     p = Path(manifest_path)
     if not p.exists():
@@ -134,6 +135,7 @@ def _read_frame_bgr(frames_dir: str, filename: str) -> np.ndarray:
 # -------------------------
 # Preprocessing + diffs
 # -------------------------
+
 
 def _preprocess_gray(frame_bgr: np.ndarray, resize_max: int = 256) -> np.ndarray:
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
@@ -175,12 +177,13 @@ def _crop_roi(gray: np.ndarray, roi: Dict[str, int]) -> np.ndarray:
     y = max(0, min(y, H - 1))
     w = max(1, min(w, W - x))
     h = max(1, min(h, H - y))
-    return gray[y:y + h, x:x + w]
+    return gray[y : y + h, x : x + w]
 
 
 # -------------------------
 # ROI detection (Haar + fallback)
 # -------------------------
+
 
 def _detect_face_bbox_haar(frame_bgr: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
@@ -238,6 +241,7 @@ def _fallback_rois_center(frame_bgr: np.ndarray) -> Tuple[Dict[str, int], Dict[s
 # Jitter evidence
 # -------------------------
 
+
 def _bbox_jitter_stats(face_bbox_series: List[Optional[Dict[str, int]]]) -> Dict[str, float]:
     bbs = [bb for bb in face_bbox_series if bb is not None]
     total = len(face_bbox_series)
@@ -290,6 +294,7 @@ def _bbox_jitter_stats(face_bbox_series: List[Optional[Dict[str, int]]]) -> Dict
 # Boundary evidence
 # -------------------------
 
+
 def _laplacian_var_u8(gray: np.ndarray) -> float:
     if gray.size == 0:
         return 0.0
@@ -337,7 +342,7 @@ def _boundary_edge_ratio_for_roi(
     iw = max(1, min(iw, ring.shape[1] - ix))
     ih = max(1, min(ih, ring.shape[0] - iy))
 
-    ring[iy:iy + ih, ix:ix + iw] = 0
+    ring[iy : iy + ih, ix : ix + iw] = 0
 
     ring_energy = _laplacian_var_u8(ring)
     inner_energy = _laplacian_var_u8(inner_img)
@@ -365,6 +370,7 @@ def _background_roi(proc_w: int, proc_h: int) -> Dict[str, int]:
 # -------------------------
 # Main API
 # -------------------------
+
 
 def compute_basic_signals(
     manifest_path: str,
@@ -402,7 +408,9 @@ def compute_basic_signals(
         roi_method = "fallback_center"
         notes.append("Face detection failed on all frames; using center-based fallback ROIs.")
 
-    gray_frames: List[np.ndarray] = [_preprocess_gray(bgr, resize_max=diff_resize_max) for bgr in bgr_frames]
+    gray_frames: List[np.ndarray] = [
+        _preprocess_gray(bgr, resize_max=diff_resize_max) for bgr in bgr_frames
+    ]
 
     # Scaling between original and processed gray
     orig_h, orig_w = bgr_frames[0].shape[:2]
@@ -426,7 +434,12 @@ def compute_basic_signals(
 
     if not any_face:
         fallback_mouth_o, fallback_eyes_o = _fallback_rois_center(bgr_frames[0])
-        fallback_face_o = {"x": int(0.15 * orig_w), "y": int(0.10 * orig_h), "w": int(0.70 * orig_w), "h": int(0.80 * orig_h)}
+        fallback_face_o = {
+            "x": int(0.15 * orig_w),
+            "y": int(0.10 * orig_h),
+            "w": int(0.70 * orig_w),
+            "h": int(0.80 * orig_h),
+        }
         for _ in bgr_frames:
             mouth_roi_series_s.append(_scale_roi(fallback_mouth_o))
             eyes_roi_series_s.append(_scale_roi(fallback_eyes_o))
@@ -436,7 +449,12 @@ def compute_basic_signals(
         for bb in face_bbox_series_raw:
             if bb is None:
                 fallback_mouth_o, fallback_eyes_o = _fallback_rois_center(bgr_frames[0])
-                fallback_face_o = {"x": int(0.15 * orig_w), "y": int(0.10 * orig_h), "w": int(0.70 * orig_w), "h": int(0.80 * orig_h)}
+                fallback_face_o = {
+                    "x": int(0.15 * orig_w),
+                    "y": int(0.10 * orig_h),
+                    "w": int(0.70 * orig_w),
+                    "h": int(0.80 * orig_h),
+                }
                 mouth_roi_series_s.append(_scale_roi(fallback_mouth_o))
                 eyes_roi_series_s.append(_scale_roi(fallback_eyes_o))
                 face_roi_series_s.append(_scale_roi(fallback_face_o))
@@ -463,9 +481,15 @@ def compute_basic_signals(
 
     # Jitter
     jitter = _bbox_jitter_stats(face_bbox_series_dict)
-    notes.append(f"Face bbox none ratio: {jitter['face_bbox_none_ratio']:.2f} (fraction of frames with no detected face).")
-    notes.append(f"Face bbox center jitter mean (normalized): {jitter['face_bbox_center_jitter_mean']:.3f}.")
-    notes.append(f"Face bbox size jitter mean (normalized): {jitter['face_bbox_size_jitter_mean']:.3f}.")
+    notes.append(
+        f"Face bbox none ratio: {jitter['face_bbox_none_ratio']:.2f} (fraction of frames with no detected face)."
+    )
+    notes.append(
+        f"Face bbox center jitter mean (normalized): {jitter['face_bbox_center_jitter_mean']:.3f}."
+    )
+    notes.append(
+        f"Face bbox size jitter mean (normalized): {jitter['face_bbox_size_jitter_mean']:.3f}."
+    )
 
     # Motion diffs
     global_per: List[float] = []
@@ -501,9 +525,13 @@ def compute_basic_signals(
 
     if e_mean > 0:
         ratio = m_mean / e_mean
-        notes.append(f"Mouth-vs-eyes motion ratio: {ratio:.2f} (higher means mouth changes more than eyes).")
+        notes.append(
+            f"Mouth-vs-eyes motion ratio: {ratio:.2f} (higher means mouth changes more than eyes)."
+        )
     else:
-        notes.append("Eye motion mean is ~0; eye region appears extremely static in sampled frames.")
+        notes.append(
+            "Eye motion mean is ~0; eye region appears extremely static in sampled frames."
+        )
 
     notes.append(f"Eyes motion p95: {e_p95:.3f}; max/mean: {eyes_max_over_mean:.2f}.")
     notes.append(f"Mouth motion p95: {m_p95:.3f}; max/mean: {mouth_max_over_mean:.2f}.")
@@ -536,7 +564,7 @@ def compute_basic_signals(
 
     if op.size >= 2:
         eye_openness_range = float(op_n.max() - op_n.min())
-        mean = float(op.mean())
+        float(op.mean())
         std = float(op.std())
 
         if std > 1e-9:
@@ -566,9 +594,10 @@ def compute_basic_signals(
         blink_like_events = 0
         blink_dip_fraction = 0.0
 
-
     notes.append(f"Eye openness range (max-min): {eye_openness_range:.3f}.")
-    notes.append(f"Blink dip fraction: {blink_dip_fraction:.3f} (fraction of frames with strong openness drop).")
+    notes.append(
+        f"Blink dip fraction: {blink_dip_fraction:.3f} (fraction of frames with strong openness drop)."
+    )
 
     # Boundary evidence (face) + background calibration
     face_boundary_series: List[float] = []
@@ -577,8 +606,12 @@ def compute_basic_signals(
     bg_roi = _background_roi(proc_w, proc_h)
 
     for i in range(len(gray_frames)):
-        face_boundary_series.append(_boundary_edge_ratio_for_roi(gray_frames[i], face_roi_series_s[i], shrink_frac=0.12))
-        bg_boundary_series.append(_boundary_edge_ratio_for_roi(gray_frames[i], bg_roi, shrink_frac=0.12))
+        face_boundary_series.append(
+            _boundary_edge_ratio_for_roi(gray_frames[i], face_roi_series_s[i], shrink_frac=0.12)
+        )
+        bg_boundary_series.append(
+            _boundary_edge_ratio_for_roi(gray_frames[i], bg_roi, shrink_frac=0.12)
+        )
 
     face_mean = float(np.mean(face_boundary_series)) if face_boundary_series else 0.0
     face_std = float(np.std(face_boundary_series)) if face_boundary_series else 0.0
@@ -590,37 +623,34 @@ def compute_basic_signals(
 
     notes.append(f"Face-boundary ratio mean: {face_mean:.3f}, std: {face_std:.3f}.")
     notes.append(f"Background-boundary ratio mean: {bg_mean:.3f}, std: {bg_std:.3f}.")
-    notes.append(f"Boundary face_over_bg mean: {face_over_bg:.3f}; face_minus_bg mean: {face_minus_bg:.3f}.")
+    notes.append(
+        f"Boundary face_over_bg mean: {face_over_bg:.3f}; face_minus_bg mean: {face_minus_bg:.3f}."
+    )
 
     result = EvidenceResult(
         manifest_path=str(Path(manifest_path)),
         frames_dir=frames_dir_resolved,
         sampled_frame_count=len(filenames),
         sampled_frame_files=filenames,
-
         roi_method=roi_method,
         face_bbox=rep_face_bbox_dict,
         face_bbox_series=face_bbox_series_dict,
         mouth_roi=rep_mouth_roi,
         eyes_roi=rep_eyes_roi,
-
         face_bbox_none_ratio=float(jitter["face_bbox_none_ratio"]),
         face_bbox_center_jitter_mean=float(jitter["face_bbox_center_jitter_mean"]),
         face_bbox_size_jitter_mean=float(jitter["face_bbox_size_jitter_mean"]),
-
         global_motion_mean=g_mean,
         global_motion_min=g_min,
         global_motion_max=g_max,
         global_motion_p95=g_p95,
         global_per_pair_motion=global_per,
-
         mouth_motion_mean=m_mean,
         mouth_motion_min=m_min,
         mouth_motion_max=m_max,
         mouth_motion_p95=m_p95,
         mouth_motion_max_over_mean=mouth_max_over_mean,
         mouth_per_pair_motion=mouth_per,
-
         eyes_motion_mean=e_mean,
         eyes_motion_min=e_min,
         eyes_motion_max=e_max,
@@ -630,24 +660,20 @@ def compute_basic_signals(
         eye_openness_range=eye_openness_range,
         blink_dip_fraction=blink_dip_fraction,
         blink_like_events=blink_like_events,
-
         blink_detected=bool(blink.get("blink_detected", False)),
         estimated_blink_count=int(blink.get("estimated_blink_count", 0)),
         blink_confidence=float(blink.get("blink_confidence", 0.0)),
         eye_openness_series=list(blink.get("eye_openness_series", [])),
         openness_threshold=float(blink.get("openness_threshold", 0.0)),
         blink_method=str(blink.get("method", "unknown")),
-
         boundary_face_ratio_mean=face_mean,
         boundary_face_ratio_std=face_std,
         boundary_face_ratio_series=face_boundary_series,
         boundary_method="laplacian_var_ring_over_inner",
-
         boundary_bg_ratio_mean=bg_mean,
         boundary_bg_ratio_std=bg_std,
         boundary_face_over_bg_mean=face_over_bg,
         boundary_face_minus_bg_mean=face_minus_bg,
-
         notes=notes,
     )
 

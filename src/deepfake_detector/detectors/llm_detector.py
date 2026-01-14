@@ -1,8 +1,11 @@
 from __future__ import annotations
-from typing import Optional, Dict, Any
+
+from typing import Any, Dict, Optional
+
+from ..pipeline import run_pipeline
 from .base import BaseDetector, DetectorResult
 from .registry import register_detector
-from ..pipeline import run_pipeline
+
 
 @register_detector("llm")
 class LLMDetector(BaseDetector):
@@ -10,7 +13,9 @@ class LLMDetector(BaseDetector):
     def name(self) -> str:
         return "llm"
 
-    def detect(self, video_path: str, out_dir: str, config: Optional[Dict[str, Any]] = None) -> DetectorResult:
+    def detect(
+        self, video_path: str, out_dir: str, config: Optional[Dict[str, Any]] = None
+    ) -> DetectorResult:
         config = config or {}
         llm_backend = config.get("llm_backend", "mock")
         num_frames = config.get("num_frames", 12)
@@ -23,7 +28,7 @@ class LLMDetector(BaseDetector):
             out_dir=out_dir,
             llm_backend=llm_backend,
             num_frames=num_frames,
-            max_keyframes=max_keyframes
+            max_keyframes=max_keyframes,
         )
 
         return DetectorResult(
@@ -34,6 +39,6 @@ class LLMDetector(BaseDetector):
                 "llm_backend": llm_backend,
                 "num_frames": num_frames,
                 "max_keyframes": max_keyframes,
-                "out_dir": summary["out_dir"]
-            }
+                "out_dir": summary["out_dir"],
+            },
         )

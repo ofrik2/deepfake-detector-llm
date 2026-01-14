@@ -8,15 +8,15 @@ Tests the complex evidence computation with mocked OpenCV and file operations.
 import json
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import patch
 
 import numpy as np
 import pytest
 
 from deepfake_detector.evidence.basic_signals import (
+    EvidenceResult,
     compute_basic_signals,
     save_basic_signals,
-    EvidenceResult
 )
 
 
@@ -38,22 +38,10 @@ class TestComputeBasicSignals:
             "every_n_requested": 75,
             "resize_max": 512,
             "frames": [
-                {
-                    "frame_index": 0,
-                    "timestamp_seconds": 0.0,
-                    "filename": "frame_0000.jpg"
-                },
-                {
-                    "frame_index": 75,
-                    "timestamp_seconds": 2.5,
-                    "filename": "frame_0075.jpg"
-                },
-                {
-                    "frame_index": 150,
-                    "timestamp_seconds": 5.0,
-                    "filename": "frame_0150.jpg"
-                }
-            ]
+                {"frame_index": 0, "timestamp_seconds": 0.0, "filename": "frame_0000.jpg"},
+                {"frame_index": 75, "timestamp_seconds": 2.5, "filename": "frame_0075.jpg"},
+                {"frame_index": 150, "timestamp_seconds": 5.0, "filename": "frame_0150.jpg"},
+            ],
         }
 
     @pytest.fixture
@@ -74,12 +62,12 @@ class TestComputeBasicSignals:
             "blink_confidence": 0.8,
             "eye_openness_series": [0.9, 0.2, 0.85],
             "openness_threshold": 0.3,
-            "method": "dip_detection"
+            "method": "dip_detection",
         }
 
     def create_mock_manifest_file(self, manifest_data):
         """Helper to create a temporary manifest file."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
             json.dump(manifest_data, f)
             return f.name
 
@@ -91,15 +79,15 @@ class TestComputeBasicSignals:
             # In real scenario, these would be actual image files
             # For mocking, we'll just ensure the path exists
 
-    @patch('deepfake_detector.evidence.basic_signals.cv2.imread')
-    @patch('deepfake_detector.evidence.basic_signals._detect_face_bbox_haar')
-    @patch('deepfake_detector.evidence.basic_signals.compute_blink_evidence_from_eyes_roi_series')
-    @patch('deepfake_detector.evidence.basic_signals._boundary_edge_ratio_for_roi')
-    @patch('deepfake_detector.evidence.basic_signals._background_roi')
-    @patch('deepfake_detector.evidence.basic_signals._bbox_jitter_stats')
-    @patch('deepfake_detector.evidence.basic_signals._mean_abs_diff')
-    @patch('deepfake_detector.evidence.basic_signals._mean_abs_diff_allow_mismatch')
-    @patch('deepfake_detector.evidence.basic_signals._crop_roi')
+    @patch("deepfake_detector.evidence.basic_signals.cv2.imread")
+    @patch("deepfake_detector.evidence.basic_signals._detect_face_bbox_haar")
+    @patch("deepfake_detector.evidence.basic_signals.compute_blink_evidence_from_eyes_roi_series")
+    @patch("deepfake_detector.evidence.basic_signals._boundary_edge_ratio_for_roi")
+    @patch("deepfake_detector.evidence.basic_signals._background_roi")
+    @patch("deepfake_detector.evidence.basic_signals._bbox_jitter_stats")
+    @patch("deepfake_detector.evidence.basic_signals._mean_abs_diff")
+    @patch("deepfake_detector.evidence.basic_signals._mean_abs_diff_allow_mismatch")
+    @patch("deepfake_detector.evidence.basic_signals._crop_roi")
     def test_compute_basic_signals_success_with_faces(
         self,
         mock_crop_roi,
@@ -113,15 +101,15 @@ class TestComputeBasicSignals:
         mock_imread,
         mock_manifest,
         mock_frames,
-        mock_blink_result
+        mock_blink_result,
     ):
         """Test successful computation with face detection."""
         # Setup mocks
         mock_imread.side_effect = mock_frames
         mock_detect_face.side_effect = [
             (100, 100, 200, 200),  # face detected
-            (105, 95, 195, 205),   # face detected
-            None  # face not detected, should use fallback
+            (105, 95, 195, 205),  # face detected
+            None,  # face not detected, should use fallback
         ]
         mock_blink_compute.return_value = mock_blink_result
         mock_boundary_ratio.return_value = 1.2
@@ -129,7 +117,7 @@ class TestComputeBasicSignals:
         mock_bbox_jitter.return_value = {
             "face_bbox_none_ratio": 0.0,
             "face_bbox_center_jitter_mean": 5.2,
-            "face_bbox_size_jitter_mean": 3.1
+            "face_bbox_size_jitter_mean": 3.1,
         }
         mock_mean_abs_diff.side_effect = [12.5, 15.0]  # global motion
         mock_mean_abs_diff_allow.side_effect = [14.2, 16.0, 5.8, 7.0]  # mouth and eyes motion
@@ -141,7 +129,9 @@ class TestComputeBasicSignals:
             frames_dir = temp_dir
 
             # Create mock frame files
-            self.create_mock_frame_files(frames_dir, ["frame_0000.jpg", "frame_0075.jpg", "frame_0150.jpg"], mock_frames)
+            self.create_mock_frame_files(
+                frames_dir, ["frame_0000.jpg", "frame_0075.jpg", "frame_0150.jpg"], mock_frames
+            )
 
             result = compute_basic_signals(manifest_path, frames_dir=frames_dir)
 
@@ -150,7 +140,11 @@ class TestComputeBasicSignals:
             assert result["manifest_path"] == manifest_path
             assert result["frames_dir"] == frames_dir
             assert result["sampled_frame_count"] == 3
-            assert result["sampled_frame_files"] == ["frame_0000.jpg", "frame_0075.jpg", "frame_0150.jpg"]
+            assert result["sampled_frame_files"] == [
+                "frame_0000.jpg",
+                "frame_0075.jpg",
+                "frame_0150.jpg",
+            ]
             assert result["roi_method"] == "haar_face_per_frame"
             assert result["face_bbox"] is not None
             assert result["face_bbox"]["x"] == 100
@@ -180,9 +174,9 @@ class TestComputeBasicSignals:
             assert isinstance(result["notes"], list)
             assert len(result["notes"]) > 0
 
-    @patch('deepfake_detector.evidence.basic_signals.cv2.imread')
-    @patch('deepfake_detector.evidence.basic_signals._detect_face_bbox_haar')
-    @patch('deepfake_detector.evidence.basic_signals.compute_blink_evidence_from_eyes_roi_series')
+    @patch("deepfake_detector.evidence.basic_signals.cv2.imread")
+    @patch("deepfake_detector.evidence.basic_signals._detect_face_bbox_haar")
+    @patch("deepfake_detector.evidence.basic_signals.compute_blink_evidence_from_eyes_roi_series")
     def test_compute_basic_signals_fallback_when_no_faces(
         self,
         mock_blink_compute,
@@ -190,7 +184,7 @@ class TestComputeBasicSignals:
         mock_imread,
         mock_manifest,
         mock_frames,
-        mock_blink_result
+        mock_blink_result,
     ):
         """Test computation falls back to center-based ROIs when no faces detected."""
         # Setup mocks
@@ -198,16 +192,33 @@ class TestComputeBasicSignals:
         mock_detect_face.return_value = None  # No faces detected
         mock_blink_compute.return_value = mock_blink_result
 
-        with patch('deepfake_detector.evidence.basic_signals._boundary_edge_ratio_for_roi', return_value=1.0), \
-             patch('deepfake_detector.evidence.basic_signals._background_roi', return_value={"x": 0, "y": 0, "w": 100, "h": 100}), \
-             patch('deepfake_detector.evidence.basic_signals._bbox_jitter_stats', return_value={
-                 "face_bbox_none_ratio": 1.0,
-                 "face_bbox_center_jitter_mean": 0.0,
-                 "face_bbox_size_jitter_mean": 0.0
-             }), \
-             patch('deepfake_detector.evidence.basic_signals._mean_abs_diff', return_value=10.0), \
-             patch('deepfake_detector.evidence.basic_signals._mean_abs_diff_allow_mismatch', return_value=8.0), \
-             patch('deepfake_detector.evidence.basic_signals._crop_roi', return_value=np.ones((32, 64), dtype=np.float32)):
+        with (
+            patch(
+                "deepfake_detector.evidence.basic_signals._boundary_edge_ratio_for_roi",
+                return_value=1.0,
+            ),
+            patch(
+                "deepfake_detector.evidence.basic_signals._background_roi",
+                return_value={"x": 0, "y": 0, "w": 100, "h": 100},
+            ),
+            patch(
+                "deepfake_detector.evidence.basic_signals._bbox_jitter_stats",
+                return_value={
+                    "face_bbox_none_ratio": 1.0,
+                    "face_bbox_center_jitter_mean": 0.0,
+                    "face_bbox_size_jitter_mean": 0.0,
+                },
+            ),
+            patch("deepfake_detector.evidence.basic_signals._mean_abs_diff", return_value=10.0),
+            patch(
+                "deepfake_detector.evidence.basic_signals._mean_abs_diff_allow_mismatch",
+                return_value=8.0,
+            ),
+            patch(
+                "deepfake_detector.evidence.basic_signals._crop_roi",
+                return_value=np.ones((32, 64), dtype=np.float32),
+            ),
+        ):
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 manifest_path = self.create_mock_manifest_file(mock_manifest)
@@ -224,7 +235,7 @@ class TestComputeBasicSignals:
         """Test that empty manifest raises ValueError."""
         empty_manifest = {"frames": []}
 
-        with tempfile.TemporaryDirectory() as temp_dir:
+        with tempfile.TemporaryDirectory():
             manifest_path = self.create_mock_manifest_file(empty_manifest)
 
             with pytest.raises(ValueError, match="Manifest contains no frames"):
@@ -235,14 +246,12 @@ class TestComputeBasicSignals:
         with pytest.raises(FileNotFoundError):
             compute_basic_signals("/nonexistent/manifest.json")
 
-    @patch('deepfake_detector.evidence.basic_signals.cv2.imread')
+    @patch("deepfake_detector.evidence.basic_signals.cv2.imread")
     def test_compute_basic_signals_missing_frame_file(self, mock_imread):
         """Test that missing frame file raises FileNotFoundError."""
         mock_imread.return_value = None  # cv2.imread returns None for missing files
 
-        manifest = {
-            "frames": [{"filename": "missing.jpg"}]
-        }
+        manifest = {"frames": [{"filename": "missing.jpg"}]}
 
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest_path = self.create_mock_manifest_file(manifest)
@@ -250,16 +259,11 @@ class TestComputeBasicSignals:
             with pytest.raises(FileNotFoundError, match="Failed to read frame image"):
                 compute_basic_signals(manifest_path, frames_dir=temp_dir)
 
-    @patch('deepfake_detector.evidence.basic_signals.cv2.imread')
-    @patch('deepfake_detector.evidence.basic_signals._detect_face_bbox_haar')
-    @patch('deepfake_detector.evidence.basic_signals.compute_blink_evidence_from_eyes_roi_series')
+    @patch("deepfake_detector.evidence.basic_signals.cv2.imread")
+    @patch("deepfake_detector.evidence.basic_signals._detect_face_bbox_haar")
+    @patch("deepfake_detector.evidence.basic_signals.compute_blink_evidence_from_eyes_roi_series")
     def test_compute_basic_signals_single_frame(
-        self,
-        mock_blink_compute,
-        mock_detect_face,
-        mock_imread,
-        mock_manifest,
-        mock_blink_result
+        self, mock_blink_compute, mock_detect_face, mock_imread, mock_manifest, mock_blink_result
     ):
         """Test computation with single frame (edge case)."""
         # Modify manifest to have only one frame
@@ -270,14 +274,28 @@ class TestComputeBasicSignals:
         mock_detect_face.return_value = (100, 100, 200, 200)
         mock_blink_compute.return_value = mock_blink_result
 
-        with patch('deepfake_detector.evidence.basic_signals._boundary_edge_ratio_for_roi', return_value=1.0), \
-             patch('deepfake_detector.evidence.basic_signals._background_roi', return_value={"x": 0, "y": 0, "w": 100, "h": 100}), \
-             patch('deepfake_detector.evidence.basic_signals._bbox_jitter_stats', return_value={
-                 "face_bbox_none_ratio": 0.0,
-                 "face_bbox_center_jitter_mean": 0.0,
-                 "face_bbox_size_jitter_mean": 0.0
-             }), \
-             patch('deepfake_detector.evidence.basic_signals._crop_roi', return_value=np.ones((32, 64), dtype=np.float32)):
+        with (
+            patch(
+                "deepfake_detector.evidence.basic_signals._boundary_edge_ratio_for_roi",
+                return_value=1.0,
+            ),
+            patch(
+                "deepfake_detector.evidence.basic_signals._background_roi",
+                return_value={"x": 0, "y": 0, "w": 100, "h": 100},
+            ),
+            patch(
+                "deepfake_detector.evidence.basic_signals._bbox_jitter_stats",
+                return_value={
+                    "face_bbox_none_ratio": 0.0,
+                    "face_bbox_center_jitter_mean": 0.0,
+                    "face_bbox_size_jitter_mean": 0.0,
+                },
+            ),
+            patch(
+                "deepfake_detector.evidence.basic_signals._crop_roi",
+                return_value=np.ones((32, 64), dtype=np.float32),
+            ),
+        ):
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 manifest_path = self.create_mock_manifest_file(single_frame_manifest)
@@ -303,7 +321,7 @@ class TestSaveBasicSignals:
             "manifest_path": "/fake/manifest.json",
             "sampled_frame_count": 12,
             "global_motion_mean": 15.5,
-            "notes": ["Test note"]
+            "notes": ["Test note"],
         }
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -313,7 +331,7 @@ class TestSaveBasicSignals:
 
             # Verify file was created and contains correct data
             assert out_path.exists()
-            with open(out_path, 'r') as f:
+            with open(out_path, "r") as f:
                 saved_data = json.load(f)
             assert saved_data == evidence
 
@@ -343,12 +361,12 @@ class TestSaveBasicSignals:
 
             # Save first version
             save_basic_signals(evidence1, str(out_path))
-            with open(out_path, 'r') as f:
+            with open(out_path, "r") as f:
                 assert json.load(f)["version"] == 1
 
             # Save second version (should overwrite)
             save_basic_signals(evidence2, str(out_path))
-            with open(out_path, 'r') as f:
+            with open(out_path, "r") as f:
                 assert json.load(f)["version"] == 2
 
 
@@ -404,7 +422,7 @@ class TestEvidenceResult:
             boundary_bg_ratio_std=0.05,
             boundary_face_over_bg_mean=1.5,
             boundary_face_minus_bg_mean=0.4,
-            notes=["Test note"]
+            notes=["Test note"],
         )
 
         assert result.manifest_path == "/fake/manifest.json"
@@ -463,7 +481,7 @@ class TestEvidenceResult:
             boundary_bg_ratio_std=0.0,
             boundary_face_over_bg_mean=0.0,
             boundary_face_minus_bg_mean=0.0,
-            notes=[]
+            notes=[],
         )
 
         result_dict = result.__dict__  # asdict would work too

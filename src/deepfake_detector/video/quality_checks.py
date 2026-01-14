@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import Dict, List, Optional, Tuple
+from dataclasses import asdict, dataclass
+from typing import Dict, List, Tuple
 
 import cv2
 import numpy as np
 
-from .reader import open_video, read_video_meta, read_frame_at
+from .reader import open_video, read_frame_at, read_video_meta
 
 
 @dataclass(frozen=True)
@@ -67,7 +67,9 @@ def run_quality_checks(
             errors.append(f"Too few frames: {meta.frame_count} < {min_frame_count}")
 
         if meta.width < min_resolution[0] or meta.height < min_resolution[1]:
-            warnings.append(f"Low resolution: {meta.width}x{meta.height} < {min_resolution[0]}x{min_resolution[1]}")
+            warnings.append(
+                f"Low resolution: {meta.width}x{meta.height} < {min_resolution[0]}x{min_resolution[1]}"
+            )
 
         # Sample frames uniformly for quick checks
         if meta.frame_count > 0 and sample_frames > 0:
@@ -119,7 +121,9 @@ def run_quality_checks(
             if blur_vals:
                 smean = float(np.mean(blur_vals))
                 if smean < min_blur_score:
-                    warnings.append(f"Video may be blurry (mean blur score {smean:.1f} < {min_blur_score})")
+                    warnings.append(
+                        f"Video may be blurry (mean blur score {smean:.1f} < {min_blur_score})"
+                    )
 
         ok = len(errors) == 0
         report = QualityReport(ok=ok, errors=errors, warnings=warnings, stats=stats)

@@ -1,17 +1,16 @@
 from __future__ import annotations
 
-import os
-from dataclasses import dataclass
-from typing import List, Optional
-from dotenv import load_dotenv
-from openai import AzureOpenAI
-from .client_base import LLMClient, LLMResponse
-import time
-from openai import RateLimitError
 import base64
+import os
+import time
+from dataclasses import dataclass
 from pathlib import Path
+from typing import List, Optional
 
+from dotenv import load_dotenv
+from openai import AzureOpenAI, RateLimitError
 
+from .client_base import LLMClient, LLMResponse
 
 
 @dataclass
@@ -22,6 +21,7 @@ class AzureOpenAIClient(LLMClient):
     Uses text + optional image inputs.
     Assumes environment variables are set (see env.example).
     """
+
     model_name: str = "azure-openai"
 
     def __post_init__(self):
@@ -59,7 +59,6 @@ class AzureOpenAIClient(LLMClient):
 
         return f"data:image/jpeg;base64,{b64}"
 
-
     def generate(
         self,
         *,
@@ -81,9 +80,7 @@ class AzureOpenAIClient(LLMClient):
                 content.append(
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": self._image_to_data_url(p)
-                        },
+                        "image_url": {"url": self._image_to_data_url(p)},
                     }
                 )
 
@@ -97,13 +94,12 @@ class AzureOpenAIClient(LLMClient):
                     temperature=0.2,
                 )
                 break
-            except RateLimitError as e:
+            except RateLimitError:
                 if attempt == 2:
                     raise
                 wait = 60
                 print(f"[AzureOpenAI] Rate limit hit. Sleeping {wait}s and retrying...")
                 time.sleep(wait)
-
 
         text = resp.choices[0].message.content
 

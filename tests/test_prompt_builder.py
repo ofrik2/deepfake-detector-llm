@@ -1,5 +1,3 @@
-import pytest
-
 from src.deepfake_detector.prompts.prompt_builder import build_prompt_text
 
 
@@ -10,7 +8,7 @@ class TestBuildPromptText:
                 "sampled_frame_count": 12,
                 "sampling_mode": "uniform",
                 "fps": 30.0,
-                "duration_seconds": 10.0
+                "duration_seconds": 10.0,
             },
             "evidence": {
                 "roi_method": "haar_face_per_frame",
@@ -33,13 +31,13 @@ class TestBuildPromptText:
                 "estimated_blink_count": 2,
                 "blink_confidence": 0.7,
                 "blink_like_events": 1,
-                "notes": ["Test note 1", "Test note 2"]
+                "notes": ["Test note 1", "Test note 2"],
             },
             "keyframes": [
                 {"timestamp_seconds": 0.0},
                 {"timestamp_seconds": 5.0},
-                {"timestamp_seconds": 10.0}
-            ]
+                {"timestamp_seconds": 10.0},
+            ],
         }
 
         prompt = build_prompt_text(llm_input)
@@ -68,11 +66,7 @@ class TestBuildPromptText:
         assert "Test note 2" in prompt
 
     def test_minimal_input(self):
-        llm_input = {
-            "sampling": {},
-            "evidence": {},
-            "keyframes": []
-        }
+        llm_input = {"sampling": {}, "evidence": {}, "keyframes": []}
 
         prompt = build_prompt_text(llm_input)
 
@@ -81,11 +75,7 @@ class TestBuildPromptText:
         assert "ROI method: unknown" in prompt
 
     def test_no_keyframes(self):
-        llm_input = {
-            "sampling": {"sampled_frame_count": 5},
-            "evidence": {},
-            "keyframes": []
-        }
+        llm_input = {"sampling": {"sampled_frame_count": 5}, "evidence": {}, "keyframes": []}
 
         prompt = build_prompt_text(llm_input)
 
@@ -94,11 +84,8 @@ class TestBuildPromptText:
     def test_missing_evidence_fields(self):
         llm_input = {
             "sampling": {},
-            "evidence": {
-                "roi_method": "test",
-                "notes": ["Note"]
-            },
-            "keyframes": []
+            "evidence": {"roi_method": "test", "notes": ["Note"]},
+            "keyframes": [],
         }
 
         prompt = build_prompt_text(llm_input)
@@ -110,10 +97,8 @@ class TestBuildPromptText:
     def test_boundary_evidence_old_format(self):
         llm_input = {
             "sampling": {},
-            "evidence": {
-                "boundary_edge_ratio_mean": 1.0  # Old field name
-            },
-            "keyframes": []
+            "evidence": {"boundary_edge_ratio_mean": 1.0},  # Old field name
+            "keyframes": [],
         }
 
         prompt = build_prompt_text(llm_input)
@@ -127,9 +112,9 @@ class TestBuildPromptText:
                 "boundary_face_ratio_mean": 1.2,
                 "boundary_bg_ratio_mean": 0.8,
                 "boundary_face_over_bg_mean": 1.5,
-                "boundary_face_minus_bg_mean": 0.4
+                "boundary_face_minus_bg_mean": 0.4,
             },
-            "keyframes": []
+            "keyframes": [],
         }
 
         prompt = build_prompt_text(llm_input)
@@ -152,6 +137,6 @@ class TestBuildPromptText:
         prompt = build_prompt_text(llm_input)
 
         # Should be properly formatted with newlines
-        lines = prompt.split('\n')
+        lines = prompt.split("\n")
         assert len(lines) > 10  # Should have multiple lines
         assert any(line.strip() == "" for line in lines)  # Should have empty lines for formatting

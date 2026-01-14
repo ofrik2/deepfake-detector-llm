@@ -3,21 +3,21 @@ from __future__ import annotations
 import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
-from .video.frames import extract_frames
+from .decision.parser import parse_llm_output
 from .evidence.basic_signals import compute_basic_signals, save_basic_signals
+from .llm.mock_client import MockLLMClient
 from .llm_input.input_builder import build_llm_input, save_llm_input
 from .prompts.prompt_builder import build_prompt_text
-from .llm.mock_client import MockLLMClient
-from .decision.parser import parse_llm_output
+from .video.frames import extract_frames
 
 
 def run_pipeline(
     *,
     video_path: str,
     out_dir: str,
-    llm_backend: str = "mock",   # "mock" for now
+    llm_backend: str = "mock",  # "mock" for now
     num_frames: int = 12,
     max_keyframes: int = 8,
 ) -> Dict:
@@ -32,7 +32,7 @@ def run_pipeline(
 
     # 1) Frames
     frames_dir = out / "frames"
-    manifest = extract_frames(
+    extract_frames(
         video_path,
         str(frames_dir),
         mode="uniform",
@@ -69,6 +69,7 @@ def run_pipeline(
         client = MockLLMClient()
     elif llm_backend == "azure":
         from .llm.azure_client import AzureOpenAIClient
+
         client = AzureOpenAIClient()
     else:
         raise ValueError(f"Unsupported llm_backend: {llm_backend}")
@@ -87,7 +88,7 @@ def run_pipeline(
     decision_path.write_text(
         json.dumps(
             {"label": decision.label, "reason": decision.reason, "raw_text": decision.raw_text},
-            indent=2
+            indent=2,
         ),
         encoding="utf-8",
     )

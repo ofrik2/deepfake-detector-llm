@@ -12,8 +12,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from deepfake_detector.pipeline import run_pipeline
 from deepfake_detector.decision.parser import Decision
+from deepfake_detector.pipeline import run_pipeline
 
 
 class TestRunPipeline:
@@ -31,17 +31,9 @@ class TestRunPipeline:
         "every_n_requested": 75,
         "resize_max": 512,
         "frames": [
-            {
-                "frame_index": 0,
-                "timestamp_seconds": 0.0,
-                "filename": "frame_0000.jpg"
-            },
-            {
-                "frame_index": 75,
-                "timestamp_seconds": 2.5,
-                "filename": "frame_0075.jpg"
-            }
-        ]
+            {"frame_index": 0, "timestamp_seconds": 0.0, "filename": "frame_0000.jpg"},
+            {"frame_index": 75, "timestamp_seconds": 2.5, "filename": "frame_0075.jpg"},
+        ],
     }
 
     mock_evidence_data = {
@@ -92,7 +84,7 @@ class TestRunPipeline:
         "boundary_bg_ratio_series": [0.75, 0.85],
         "boundary_face_over_bg_mean": 1.5,
         "boundary_face_minus_bg_mean": 0.4,
-        "notes": []
+        "notes": [],
     }
 
     @pytest.fixture
@@ -146,7 +138,7 @@ class TestRunPipeline:
             "boundary_bg_ratio_series": [0.75, 0.85],
             "boundary_face_over_bg_mean": 1.5,
             "boundary_face_minus_bg_mean": 0.4,
-            "notes": []
+            "notes": [],
         }
 
     @pytest.fixture
@@ -158,7 +150,7 @@ class TestRunPipeline:
                 "sampled_frame_count": 12,
                 "sampling_mode": "uniform",
                 "fps": 30.0,
-                "duration_seconds": 30.0
+                "duration_seconds": 30.0,
             },
             "evidence": {
                 "roi_method": "haar_face_per_frame",
@@ -166,7 +158,7 @@ class TestRunPipeline:
                 "mouth_motion_mean": 14.2,
                 "eyes_motion_mean": 5.8,
                 "blink_detected": True,
-                "boundary_face_over_bg_mean": 1.5
+                "boundary_face_over_bg_mean": 1.5,
             },
             "keyframes": [
                 {
@@ -174,16 +166,16 @@ class TestRunPipeline:
                     "frame_index": 0,
                     "timestamp_seconds": 0.0,
                     "filename": "frame_0000.jpg",
-                    "path": "/fake/frames/frame_0000.jpg"
+                    "path": "/fake/frames/frame_0000.jpg",
                 },
                 {
                     "sample_pos": 6,
                     "frame_index": 375,
                     "timestamp_seconds": 12.5,
                     "filename": "frame_0375.jpg",
-                    "path": "/fake/frames/frame_0375.jpg"
-                }
-            ]
+                    "path": "/fake/frames/frame_0375.jpg",
+                },
+            ],
         }
 
     @pytest.fixture
@@ -199,17 +191,17 @@ class TestRunPipeline:
         return Decision(
             label="MANIPULATED",
             reason="Suspicious motion patterns detected.",
-            raw_text="Label: MANIPULATED\nReason: Suspicious motion patterns detected."
+            raw_text="Label: MANIPULATED\nReason: Suspicious motion patterns detected.",
         )
 
-    @patch('deepfake_detector.pipeline.extract_frames')
-    @patch('deepfake_detector.pipeline.compute_basic_signals')
-    @patch('deepfake_detector.pipeline.save_basic_signals')
-    @patch('deepfake_detector.pipeline.build_llm_input')
-    @patch('deepfake_detector.pipeline.save_llm_input')
-    @patch('deepfake_detector.pipeline.build_prompt_text')
-    @patch('deepfake_detector.pipeline.MockLLMClient')
-    @patch('deepfake_detector.pipeline.parse_llm_output')
+    @patch("deepfake_detector.pipeline.extract_frames")
+    @patch("deepfake_detector.pipeline.compute_basic_signals")
+    @patch("deepfake_detector.pipeline.save_basic_signals")
+    @patch("deepfake_detector.pipeline.build_llm_input")
+    @patch("deepfake_detector.pipeline.save_llm_input")
+    @patch("deepfake_detector.pipeline.build_prompt_text")
+    @patch("deepfake_detector.pipeline.MockLLMClient")
+    @patch("deepfake_detector.pipeline.parse_llm_output")
     def test_run_pipeline_success_mock_backend(
         self,
         mock_parse_llm_output,
@@ -223,7 +215,7 @@ class TestRunPipeline:
         mock_evidence,
         mock_llm_input,
         mock_llm_response,
-        mock_decision
+        mock_decision,
     ):
         """Test successful pipeline run with mock backend."""
         # Setup mocks
@@ -241,18 +233,18 @@ class TestRunPipeline:
             frames_dir = Path(temp_dir) / "frames"
             frames_dir.mkdir(parents=True)
             manifest_path = frames_dir / "frames_manifest.json"
-            with open(manifest_path, 'w') as f:
+            with open(manifest_path, "w") as f:
                 json.dump(self.mock_manifest_data, f)
             # Create the evidence file since save_basic_signals is mocked
             evidence_path = frames_dir / "evidence_basic.json"
-            with open(evidence_path, 'w') as f:
+            with open(evidence_path, "w") as f:
                 json.dump(self.mock_evidence_data, f)
             result = run_pipeline(
                 video_path="/fake/video.mp4",
                 out_dir=temp_dir,
                 llm_backend="mock",
                 num_frames=12,
-                max_keyframes=8
+                max_keyframes=8,
             )
 
             # Verify result structure
@@ -269,8 +261,13 @@ class TestRunPipeline:
             assert result["reason"] == "Suspicious motion patterns detected."
 
             # Verify all paths exist
-            for path_key in ["manifest_path", "evidence_path",
-                           "prompt_path", "llm_output_path", "decision_path"]:
+            for path_key in [
+                "manifest_path",
+                "evidence_path",
+                "prompt_path",
+                "llm_output_path",
+                "decision_path",
+            ]:
                 assert Path(result[path_key]).exists()
 
             # Verify function calls
@@ -284,13 +281,10 @@ class TestRunPipeline:
             mock_client_instance.generate.assert_called_once()
             mock_parse_llm_output.assert_called_once()
 
-    @patch('deepfake_detector.pipeline.extract_frames')
-    @patch('deepfake_detector.pipeline.compute_basic_signals')
+    @patch("deepfake_detector.pipeline.extract_frames")
+    @patch("deepfake_detector.pipeline.compute_basic_signals")
     def test_run_pipeline_creates_output_directory(
-        self,
-        mock_compute_basic_signals,
-        mock_extract_frames,
-        mock_evidence
+        self, mock_compute_basic_signals, mock_extract_frames, mock_evidence
     ):
         """Test that pipeline creates output directory if it doesn't exist."""
         mock_extract_frames.return_value = self.mock_manifest_data
@@ -306,15 +300,17 @@ class TestRunPipeline:
             frames_dir = out_dir / "frames"
             frames_dir.mkdir(parents=True)
             manifest_path = frames_dir / "frames_manifest.json"
-            with open(manifest_path, 'w') as f:
+            with open(manifest_path, "w") as f:
                 json.dump(self.mock_manifest_data, f)
 
-            with patch('deepfake_detector.pipeline.save_basic_signals'), \
-                 patch('deepfake_detector.pipeline.build_llm_input'), \
-                 patch('deepfake_detector.pipeline.save_llm_input'), \
-                 patch('deepfake_detector.pipeline.build_prompt_text', return_value="mock prompt"), \
-                 patch('deepfake_detector.pipeline.MockLLMClient') as mock_client_class, \
-                 patch('deepfake_detector.pipeline.parse_llm_output') as mock_parse:
+            with (
+                patch("deepfake_detector.pipeline.save_basic_signals"),
+                patch("deepfake_detector.pipeline.build_llm_input"),
+                patch("deepfake_detector.pipeline.save_llm_input"),
+                patch("deepfake_detector.pipeline.build_prompt_text", return_value="mock prompt"),
+                patch("deepfake_detector.pipeline.MockLLMClient") as mock_client_class,
+                patch("deepfake_detector.pipeline.parse_llm_output") as mock_parse,
+            ):
 
                 mock_llm_response = MagicMock()
                 mock_llm_response.raw_text = "mock response"
@@ -323,23 +319,20 @@ class TestRunPipeline:
                 mock_client_class.return_value = mock_client_instance
                 mock_parse.return_value = Decision("REAL", "mock", "mock")
 
-                run_pipeline(
-                    video_path="/fake/video.mp4",
-                    out_dir=str(out_dir)
-                )
+                run_pipeline(video_path="/fake/video.mp4", out_dir=str(out_dir))
 
             # Directory should now exist
             assert out_dir.exists()
             assert out_dir.is_dir()
 
-    @patch('deepfake_detector.pipeline.extract_frames')
-    @patch('deepfake_detector.pipeline.compute_basic_signals')
-    @patch('deepfake_detector.pipeline.save_basic_signals')
-    @patch('deepfake_detector.pipeline.build_llm_input')
-    @patch('deepfake_detector.pipeline.save_llm_input')
-    @patch('deepfake_detector.pipeline.build_prompt_text')
-    @patch('deepfake_detector.llm.azure_client.AzureOpenAIClient')
-    @patch('deepfake_detector.pipeline.parse_llm_output')
+    @patch("deepfake_detector.pipeline.extract_frames")
+    @patch("deepfake_detector.pipeline.compute_basic_signals")
+    @patch("deepfake_detector.pipeline.save_basic_signals")
+    @patch("deepfake_detector.pipeline.build_llm_input")
+    @patch("deepfake_detector.pipeline.save_llm_input")
+    @patch("deepfake_detector.pipeline.build_prompt_text")
+    @patch("deepfake_detector.llm.azure_client.AzureOpenAIClient")
+    @patch("deepfake_detector.pipeline.parse_llm_output")
     def test_run_pipeline_azure_backend(
         self,
         mock_parse_llm_output,
@@ -353,7 +346,7 @@ class TestRunPipeline:
         mock_evidence,
         mock_llm_input,
         mock_llm_response,
-        mock_decision
+        mock_decision,
     ):
         """Test pipeline run with Azure backend."""
         # Setup mocks
@@ -371,23 +364,23 @@ class TestRunPipeline:
             frames_dir = Path(temp_dir) / "frames"
             frames_dir.mkdir(parents=True)
             manifest_path = frames_dir / "frames_manifest.json"
-            with open(manifest_path, 'w') as f:
+            with open(manifest_path, "w") as f:
                 json.dump(self.mock_manifest_data, f)
 
-            result = run_pipeline(
+            run_pipeline(
                 video_path="/fake/video.mp4",
                 out_dir=temp_dir,
                 llm_backend="azure",
                 num_frames=12,
-                max_keyframes=8
+                max_keyframes=8,
             )
 
             # Verify Azure client was used
             mock_azure_client_class.assert_called_once()
             mock_client_instance.generate.assert_called_once()
 
-    @patch('deepfake_detector.pipeline.extract_frames')
-    @patch('deepfake_detector.pipeline.compute_basic_signals')
+    @patch("deepfake_detector.pipeline.extract_frames")
+    @patch("deepfake_detector.pipeline.compute_basic_signals")
     def test_run_pipeline_invalid_backend(self, mock_compute_basic_signals, mock_extract_frames):
         """Test pipeline with invalid LLM backend raises ValueError."""
         mock_extract_frames.return_value = self.mock_manifest_data
@@ -397,24 +390,20 @@ class TestRunPipeline:
             frames_dir = Path(temp_dir) / "frames"
             frames_dir.mkdir(parents=True)
             manifest_path = frames_dir / "frames_manifest.json"
-            with open(manifest_path, 'w') as f:
+            with open(manifest_path, "w") as f:
                 json.dump(self.mock_manifest_data, f)
 
             with pytest.raises(ValueError, match="Unsupported llm_backend: invalid"):
-                run_pipeline(
-                    video_path="/fake/video.mp4",
-                    out_dir=temp_dir,
-                    llm_backend="invalid"
-                )
+                run_pipeline(video_path="/fake/video.mp4", out_dir=temp_dir, llm_backend="invalid")
 
-    @patch('deepfake_detector.pipeline.extract_frames')
-    @patch('deepfake_detector.pipeline.compute_basic_signals')
-    @patch('deepfake_detector.pipeline.save_basic_signals')
-    @patch('deepfake_detector.pipeline.build_llm_input')
-    @patch('deepfake_detector.pipeline.save_llm_input')
-    @patch('deepfake_detector.pipeline.build_prompt_text')
-    @patch('deepfake_detector.pipeline.MockLLMClient')
-    @patch('deepfake_detector.pipeline.parse_llm_output')
+    @patch("deepfake_detector.pipeline.extract_frames")
+    @patch("deepfake_detector.pipeline.compute_basic_signals")
+    @patch("deepfake_detector.pipeline.save_basic_signals")
+    @patch("deepfake_detector.pipeline.build_llm_input")
+    @patch("deepfake_detector.pipeline.save_llm_input")
+    @patch("deepfake_detector.pipeline.build_prompt_text")
+    @patch("deepfake_detector.pipeline.MockLLMClient")
+    @patch("deepfake_detector.pipeline.parse_llm_output")
     def test_run_pipeline_saves_artifacts_correctly(
         self,
         mock_parse_llm_output,
@@ -428,7 +417,7 @@ class TestRunPipeline:
         mock_evidence,
         mock_llm_input,
         mock_llm_response,
-        mock_decision
+        mock_decision,
     ):
         """Test that all artifacts are saved with correct content."""
         # Setup mocks
@@ -443,7 +432,7 @@ class TestRunPipeline:
         mock_parse_llm_output.return_value = Decision(
             label="REAL",
             reason="Natural motion detected.",
-            raw_text="Label: REAL\nReason: Natural motion detected."
+            raw_text="Label: REAL\nReason: Natural motion detected.",
         )
 
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -451,19 +440,17 @@ class TestRunPipeline:
             frames_dir = Path(temp_dir) / "frames"
             frames_dir.mkdir(parents=True)
             manifest_path = frames_dir / "frames_manifest.json"
-            with open(manifest_path, 'w') as f:
+            with open(manifest_path, "w") as f:
                 json.dump(self.mock_manifest_data, f)
 
             result = run_pipeline(
-                video_path="/fake/video.mp4",
-                out_dir=temp_dir,
-                llm_backend="mock"
+                video_path="/fake/video.mp4", out_dir=temp_dir, llm_backend="mock"
             )
 
             # Check manifest was saved
             manifest_path = Path(result["manifest_path"])
             assert manifest_path.exists()
-            with open(manifest_path, 'r') as f:
+            with open(manifest_path, "r") as f:
                 saved_manifest = json.load(f)
             assert saved_manifest == self.mock_manifest_data
 
@@ -480,20 +467,20 @@ class TestRunPipeline:
             # Check decision was saved
             decision_path = Path(result["decision_path"])
             assert decision_path.exists()
-            with open(decision_path, 'r') as f:
+            with open(decision_path, "r") as f:
                 saved_decision = json.load(f)
             assert saved_decision["label"] == "REAL"
             assert saved_decision["reason"] == "Natural motion detected."
             assert "raw_text" in saved_decision
 
-    @patch('deepfake_detector.pipeline.extract_frames')
-    @patch('deepfake_detector.pipeline.compute_basic_signals')
-    @patch('deepfake_detector.pipeline.save_basic_signals')
-    @patch('deepfake_detector.pipeline.build_llm_input')
-    @patch('deepfake_detector.pipeline.save_llm_input')
-    @patch('deepfake_detector.pipeline.build_prompt_text')
-    @patch('deepfake_detector.pipeline.MockLLMClient')
-    @patch('deepfake_detector.pipeline.parse_llm_output')
+    @patch("deepfake_detector.pipeline.extract_frames")
+    @patch("deepfake_detector.pipeline.compute_basic_signals")
+    @patch("deepfake_detector.pipeline.save_basic_signals")
+    @patch("deepfake_detector.pipeline.build_llm_input")
+    @patch("deepfake_detector.pipeline.save_llm_input")
+    @patch("deepfake_detector.pipeline.build_prompt_text")
+    @patch("deepfake_detector.pipeline.MockLLMClient")
+    @patch("deepfake_detector.pipeline.parse_llm_output")
     def test_run_pipeline_with_custom_parameters(
         self,
         mock_parse_llm_output,
@@ -507,7 +494,7 @@ class TestRunPipeline:
         mock_evidence,
         mock_llm_input,
         mock_llm_response,
-        mock_decision
+        mock_decision,
     ):
         """Test pipeline with custom num_frames and max_keyframes."""
         # Setup mocks
@@ -525,15 +512,15 @@ class TestRunPipeline:
             frames_dir = Path(temp_dir) / "frames"
             frames_dir.mkdir(parents=True)
             manifest_path = frames_dir / "frames_manifest.json"
-            with open(manifest_path, 'w') as f:
+            with open(manifest_path, "w") as f:
                 json.dump(self.mock_manifest_data, f)
 
-            result = run_pipeline(
+            run_pipeline(
                 video_path="/fake/video.mp4",
                 out_dir=temp_dir,
                 llm_backend="mock",
                 num_frames=20,
-                max_keyframes=4
+                max_keyframes=4,
             )
 
             # Verify extract_frames was called with correct num_frames

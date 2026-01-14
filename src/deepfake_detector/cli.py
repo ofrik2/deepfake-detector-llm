@@ -2,11 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 
-from .pipeline import run_pipeline
-from .detectors.registry import discover_plugins, list_detectors, get_detector
-from .detectors.base import DetectorResult
+from .detectors.registry import discover_plugins, get_detector, list_detectors
 
 
 def main():
@@ -33,7 +30,9 @@ def main():
 
     if not args.cmd:
         p.print_help()
-        return
+        import sys
+
+        sys.exit(0)
 
     if args.cmd == "detect":
         detector_cls = get_detector(args.detector)
@@ -48,19 +47,15 @@ def main():
             "num_frames": args.num_frames,
             "max_keyframes": args.max_keyframes,
         }
-        
-        result = detector.detect(
-            video_path=args.video,
-            out_dir=args.out,
-            config=config
-        )
-        
+
+        result = detector.detect(video_path=args.video, out_dir=args.out, config=config)
+
         # Convert DetectorResult to dict for printing
         summary = {
             "label": result.label,
             "rationale": result.rationale,
             "evidence_used": result.evidence_used,
-            "metadata": result.metadata
+            "metadata": result.metadata,
         }
         print(json.dumps(summary, indent=2))
 

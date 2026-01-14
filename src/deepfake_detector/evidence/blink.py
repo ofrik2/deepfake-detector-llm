@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from typing import Dict, List
 
 import cv2
@@ -34,7 +34,6 @@ def _eye_openness_proxy(gray_roi: np.ndarray) -> float:
     lap = cv2.Laplacian(g, cv2.CV_64F)
     v = float(lap.var())
     return float(np.log1p(v))
-
 
 
 def _smooth_1d(x: np.ndarray) -> np.ndarray:

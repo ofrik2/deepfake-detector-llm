@@ -1,7 +1,4 @@
 import json
-import tempfile
-from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -41,7 +38,7 @@ class TestBuildLlmInput:
             "fps": 25.0,
             "duration_seconds": 0.6,
             "resize_max": 512,
-            "video_path": "/path/to/video.mp4"
+            "video_path": "/path/to/video.mp4",
         }
         manifest_path = tmp_path / "manifest.json"
         with manifest_path.open("w") as f:
@@ -51,16 +48,14 @@ class TestBuildLlmInput:
         evidence = {
             "roi_method": "haar_face_per_frame",
             "global_motion_mean": 1.5,
-            "notes": ["Test note"]
+            "notes": ["Test note"],
         }
         evidence_path = tmp_path / "evidence.json"
         with evidence_path.open("w") as f:
             json.dump(evidence, f)
 
         result = build_llm_input(
-            manifest_path=str(manifest_path),
-            evidence_path=str(evidence_path),
-            max_keyframes=2
+            manifest_path=str(manifest_path), evidence_path=str(evidence_path), max_keyframes=2
         )
 
         assert result["video_id"] == "video"
@@ -85,9 +80,7 @@ class TestBuildLlmInput:
             json.dump(evidence, f)
 
         result = build_llm_input(
-            manifest_path=str(manifest_path),
-            evidence_path=str(evidence_path),
-            video_id="custom_id"
+            manifest_path=str(manifest_path), evidence_path=str(evidence_path), video_id="custom_id"
         )
 
         assert result["video_id"] == "custom_id"
@@ -104,10 +97,7 @@ class TestBuildLlmInput:
             json.dump(evidence, f)
 
         with pytest.raises(ValueError, match="Manifest has no frames"):
-            build_llm_input(
-                manifest_path=str(manifest_path),
-                evidence_path=str(evidence_path)
-            )
+            build_llm_input(manifest_path=str(manifest_path), evidence_path=str(evidence_path))
 
     def test_max_keyframes_zero(self, tmp_path):
         manifest = {"frames": [{"frame_index": 0, "filename": "f.jpg"}]}
@@ -121,18 +111,18 @@ class TestBuildLlmInput:
             json.dump(evidence, f)
 
         result = build_llm_input(
-            manifest_path=str(manifest_path),
-            evidence_path=str(evidence_path),
-            max_keyframes=0
+            manifest_path=str(manifest_path), evidence_path=str(evidence_path), max_keyframes=0
         )
 
         assert result["keyframes"] == []
 
     def test_max_keyframes_more_than_frames(self, tmp_path):
-        manifest = {"frames": [
-            {"frame_index": 0, "filename": "f1.jpg"},
-            {"frame_index": 1, "filename": "f2.jpg"}
-        ]}
+        manifest = {
+            "frames": [
+                {"frame_index": 0, "filename": "f1.jpg"},
+                {"frame_index": 1, "filename": "f2.jpg"},
+            ]
+        }
         manifest_path = tmp_path / "manifest.json"
         with manifest_path.open("w") as f:
             json.dump(manifest, f)
@@ -143,9 +133,7 @@ class TestBuildLlmInput:
             json.dump(evidence, f)
 
         result = build_llm_input(
-            manifest_path=str(manifest_path),
-            evidence_path=str(evidence_path),
-            max_keyframes=5
+            manifest_path=str(manifest_path), evidence_path=str(evidence_path), max_keyframes=5
         )
 
         assert len(result["keyframes"]) == 2  # All frames
@@ -167,7 +155,7 @@ class TestBuildLlmInput:
         result = build_llm_input(
             manifest_path=str(manifest_path),
             evidence_path=str(evidence_path),
-            frames_dir=str(custom_frames_dir)
+            frames_dir=str(custom_frames_dir),
         )
 
         assert result["keyframes"][0]["path"].startswith(str(custom_frames_dir))
@@ -186,9 +174,7 @@ class TestBuildLlmInput:
             json.dump(evidence, f)
 
         result = build_llm_input(
-            manifest_path=str(manifest_path),
-            evidence_path=str(evidence_path),
-            max_keyframes=3
+            manifest_path=str(manifest_path), evidence_path=str(evidence_path), max_keyframes=3
         )
 
         positions = [kf["sample_pos"] for kf in result["keyframes"]]

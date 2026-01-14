@@ -1,6 +1,6 @@
 # Deepfake Detection with LLM-Assisted Evidence Reasoning
 
-[![Tests](https://github.com/username/deepfake-detector-llm/actions/workflows/tests.yml/badge.svg)](https://github.com/username/deepfake-detector-llm/actions/workflows/tests.yml)
+[![Tests](https://github.com/ofrik2/deepfake-detector-llm/actions/workflows/tests.yml/badge.svg)](https://github.com/ofrik2/deepfake-detector-llm/actions/workflows/tests.yml)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -70,7 +70,7 @@ Get started with deepfake detection in minutes:
 
 ```bash
 # Clone repository
-git clone https://github.com/username/deepfake-detector-llm.git
+git clone https://github.com/ofrik2/deepfake-detector-llm.git
 cd deepfake-detector-llm
 
 # Install package
@@ -541,7 +541,7 @@ pip install deepfake-detector-llm-0.1.0-py3-none-any.whl
 
 **From Git Repository:**
 ```bash
-pip install git+https://github.com/username/deepfake-detector-llm.git
+pip install git+https://github.com/ofrik2/deepfake-detector-llm.git
 ```
 
 ### Command-Line Interface
@@ -768,7 +768,7 @@ The CI pipeline performs the following steps:
 
 **1. Clone the repository:**
 ```bash
-git clone https://github.com/username/deepfake-detector-llm.git
+git clone https://github.com/ofrik2/deepfake-detector-llm.git
 cd deepfake-detector-llm
 ```
 
@@ -1116,7 +1116,7 @@ This project implements a comprehensive deepfake detection system with numerous 
 
 **1. Clone and Install:**
 ```bash
-git clone https://github.com/username/deepfake-detector-llm.git
+git clone https://github.com/ofrik2/deepfake-detector-llm.git
 cd deepfake-detector-llm
 pip install -e ".[dev]"
 ```

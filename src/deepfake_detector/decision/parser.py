@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Literal, Optional
+from typing import Literal
 
 Label = Literal["REAL", "MANIPULATED", "UNCERTAIN"]
 
@@ -14,7 +14,9 @@ class Decision:
     raw_text: str
 
 
-_LABEL_RE = re.compile(r"^\s*Label\s*:\s*(REAL|MANIPULATED|UNCERTAIN)\s*$", re.IGNORECASE | re.MULTILINE)
+_LABEL_RE = re.compile(
+    r"^\s*Label\s*:\s*(REAL|MANIPULATED|UNCERTAIN)\s*$", re.IGNORECASE | re.MULTILINE
+)
 _REASON_RE = re.compile(r"^\s*Reason\s*:\s*(.+)\s*$", re.IGNORECASE | re.MULTILINE | re.DOTALL)
 
 

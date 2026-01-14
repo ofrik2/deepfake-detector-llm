@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -12,6 +12,7 @@ class LLMInput:
     A compact, JSON-serializable payload the LLM can reason over.
     This is the single source of truth for what the model is told.
     """
+
     video_id: str
     sampling: Dict[str, Any]
     evidence: Dict[str, Any]

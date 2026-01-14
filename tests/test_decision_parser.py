@@ -1,6 +1,4 @@
-import pytest
-
-from src.deepfake_detector.decision.parser import Decision, parse_llm_output
+from src.deepfake_detector.decision.parser import parse_llm_output
 
 
 class TestParseLlmOutput:

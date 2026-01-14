@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 
 from src.deepfake_detector.evidence.blink import (
     _count_dip_events,
@@ -97,22 +96,22 @@ class TestCountDipEvents:
 class TestComputeBlinkEvidence:
     def test_empty_input(self):
         result = compute_blink_evidence_from_eyes_roi_series([])
-        assert result['blink_detected'] is False
-        assert result['estimated_blink_count'] == 0
-        assert result['eye_openness_series'] == []
+        assert result["blink_detected"] is False
+        assert result["estimated_blink_count"] == 0
+        assert result["eye_openness_series"] == []
 
     def test_single_roi(self):
         roi = np.full((10, 10), 128, dtype=np.uint8)
         result = compute_blink_evidence_from_eyes_roi_series([roi])
-        assert result['blink_detected'] is False
-        assert len(result['eye_openness_series']) == 1
+        assert result["blink_detected"] is False
+        assert len(result["eye_openness_series"]) == 1
 
     def test_uniform_series(self):
         rois = [np.full((10, 10), 128, dtype=np.uint8) for _ in range(5)]
         result = compute_blink_evidence_from_eyes_roi_series(rois)
-        assert result['blink_detected'] is False
-        assert result['estimated_blink_count'] == 0
-        assert len(result['eye_openness_series']) == 5
+        assert result["blink_detected"] is False
+        assert result["estimated_blink_count"] == 0
+        assert len(result["eye_openness_series"]) == 5
 
     def test_blink_detected(self):
         # Create series with a dip
@@ -126,10 +125,10 @@ class TestComputeBlinkEvidence:
 
         result = compute_blink_evidence_from_eyes_roi_series(rois)
         # Should detect some blink-like event
-        assert isinstance(result['blink_detected'], bool)
-        assert result['estimated_blink_count'] >= 0
-        assert 0.0 <= result['blink_confidence'] <= 1.0
-        assert len(result['eye_openness_series']) == 10
+        assert isinstance(result["blink_detected"], bool)
+        assert result["estimated_blink_count"] >= 0
+        assert 0.0 <= result["blink_confidence"] <= 1.0
+        assert len(result["eye_openness_series"]) == 10
 
     def test_high_variance_series(self):
         # Create series with high variance
@@ -139,8 +138,8 @@ class TestComputeBlinkEvidence:
             rois.append(roi)
 
         result = compute_blink_evidence_from_eyes_roi_series(rois)
-        assert len(result['eye_openness_series']) == 10
-        assert all(isinstance(x, float) for x in result['eye_openness_series'])
+        assert len(result["eye_openness_series"]) == 10
+        assert all(isinstance(x, float) for x in result["eye_openness_series"])
 
     def test_mixed_sizes(self):
         # Test with different ROI sizes
@@ -150,4 +149,4 @@ class TestComputeBlinkEvidence:
             np.full((15, 15), 200, dtype=np.uint8),
         ]
         result = compute_blink_evidence_from_eyes_roi_series(rois)
-        assert len(result['eye_openness_series']) == 3
+        assert len(result["eye_openness_series"]) == 3
