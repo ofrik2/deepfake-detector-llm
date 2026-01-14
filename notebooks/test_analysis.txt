@@ -1,0 +1,34 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+import json
+from pathlib import Path
+
+# %matplotlib inline
+sns.set_theme(style="whitegrid")
+
+
+# Mock data for sensitivity plot demonstration
+thresholds = np.linspace(0.1, 0.9, 9)
+accuracy = [0.65, 0.72, 0.81, 0.88, 0.85, 0.78, 0.70, 0.62, 0.55]
+
+plt.figure(figsize=(10, 6))
+plt.plot(thresholds, accuracy, marker='o', linestyle='-', color='b')
+plt.title("Accuracy vs. Openness Threshold")
+plt.xlabel("Threshold Factor (mu - k * sigma)")
+plt.ylabel("Detection Accuracy")
+plt.axvline(x=0.4, color='r', linestyle='--', label='Optimal Threshold')
+plt.legend()
+plt.show()
+
+
+cost_data = {
+    'Model': ['GPT-4o', 'Claude 3.5 Sonnet', 'Gemini 1.5 Pro'],
+    'Input Tokens (Avg)': [1200, 1150, 1300],
+    'Output Tokens (Avg)': [450, 500, 420],
+    'Cost per 1M Tokens (In/Out)': ['$5/$15', '$3/$15', '$3.5/$10.5']
+}
+df_costs = pd.DataFrame(cost_data)
+print(df_costs)
+

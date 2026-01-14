@@ -84,7 +84,14 @@ deepfake-detector --help
 
 ```bash
 # Run detection with mock LLM (free, no setup needed)
+# If package is installed:
 deepfake-detector detect \
+  --video path/to/video.mp4 \
+  --out results/ \
+  --llm mock
+
+# If running from source without installation:
+python -m src.deepfake_detector.cli detect \
   --video path/to/video.mp4 \
   --out results/ \
   --llm mock
