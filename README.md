@@ -10,7 +10,7 @@ A research project exploring whether Large Language Models can assist in deepfak
 
 - **🧪 Research-Oriented**: Focus on interpretability, transparency, and honest failure analysis
 - **📦 Packaged as Python Library**: Installable package with CLI and programmatic API
-- **✅ 149 Unit Tests**: Comprehensive test coverage with pre-commit hooks
+- **✅ 153 Unit Tests**: Comprehensive test coverage with pre-commit hooks
 - **🔌 Modular Architecture**: Independent, testable components with clear data contracts
 - **💰 Cost-Aware**: Detailed LLM token usage analysis and optimization strategies
 - **🔍 Forensic Evidence**: Motion analysis, blink detection, boundary artifacts, face stability
@@ -133,7 +133,7 @@ cat results/prompt.txt
 ### Run Tests
 
 ```bash
-# Run all 149 tests
+# Run all 153 tests
 pytest tests/ -v
 
 # Quick validation
@@ -625,7 +625,7 @@ This project maintains high code quality through comprehensive unit testing and 
 
 ### Unit Test Coverage
 
-The codebase includes **149 unit tests** providing extensive coverage across all major components:
+The codebase includes **153 unit tests** providing extensive coverage across all major components:
 
 #### Test Breakdown by Module:
 

@@ -66,7 +66,7 @@ This document tracks the key prompts and design iterations used during the devel
 
 **Outcome:**
 - Developed the `MockLLMClient` that mimics GPT-4's output format based on input evidence.
-- Wrote 149 unit tests covering every transformation in the pipeline.
+- Wrote 153 unit tests covering every transformation in the pipeline.
 
 ### Prompt 8: Final Documentation
 > "We need a comprehensive README and User Guide. It should emphasize that this is a RESEARCH project and that failure to detect a deepfake is an honest result."
