@@ -1400,7 +1400,7 @@ Comprehensive documentation is provided in the `docs/` directory:
 ### Additional Resources
 
 **Prompt Iteration Log:**
-- [prompts/prompt_log.md](src/deepfake_detector/prompts/prompt_log.md)
+- [prompts/prompt_log.md](prompt_log.md)
 - Documents prompt engineering iterations
 - Shows evolution of prompts with reasoning
 - Useful for understanding LLM interaction design
